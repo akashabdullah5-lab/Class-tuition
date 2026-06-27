@@ -1,0 +1,22 @@
+{
+  "name": "Hridoy's Schedules",
+  "short_name": "Schedules",
+  "description": "Tuition tracker and schedule manager",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#e0f2f1",
+  "theme_color": "#00695c",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://via.placeholder.com/192x192/00695c/ffffff?text=HS",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://via.placeholder.com/512x512/00695c/ffffff?text=HS",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

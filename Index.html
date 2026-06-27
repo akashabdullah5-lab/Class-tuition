@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Hridoy's Schedules">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#00695c">
+<link rel="manifest" href="manifest.json">
+<title>Hridoy's Schedules</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --h1:#00695c; --h2:#00897b;
+  --accent:#ffd54f; --accent-text:#004d40;
+  --time-bg:#b2dfdb; --time-fg:#00695c;
+  --row-alt:#f0faf9; --border:#b2dfdb;
+  --section:#00695c; --bg:#e0f2f1;
+  --focus:#ffd54f; --edit-color:#004d40;
+  --card-bg:#fff; --card-shadow:rgba(0,0,0,0.08);
+  --text:#111; --subtext:#555;
+  --sidebar-w: 270px;
+}
+
+body {
+  font-family: var(--font-family, 'Segoe UI', system-ui, sans-serif);
+  font-size: var(--font-size, 1rem);
+  background: var(--bg);
+  min-height: 100vh;
+  padding-bottom: 62px;
+  transition: background 0.3s, color 0.3s;
+  color: var(--text);
+}
+
+/* ── Sidebar Overlay ── */
+#sidebarOverlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 600;
+}
+#sidebarOverlay.open { display: block; }
+
+/* ── Sidebar ── */
+#sidebar {
+  position: fixed; top: 0; left: 0; bottom: 0;
+  width: var(--sidebar-w);
+  background: var(--card-bg);
+  z-index: 700;
+  transform: translateX(calc(-1 * var(--sidebar-w)));
+  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  box-shadow: 4px 0 24px rgba(0,0,0,0.18);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+#sidebar.open { transform: translateX(0); }
+
+.sidebar-header {
+  background: linear-gradient(135deg, var(--h1), var(--h2));
+  padding: 44px 18px 18px;
+  position: relative;
+}
+.sidebar-header .app-name {
+  font-size: 1.05rem; font-weight: 800;
+  color: #fff; letter-spacing: 0.3px;
+  font-family: 'Times New Roman', Times, serif;
+}
+.sidebar-header .app-sub {
+  font-size: 0.65rem; color: rgba(255,255,255,0.75); margin-top: 3px;
+}
+.sidebar-close {
+  position: absolute; top: 10px; right: 10px;
+  background: rgba(255,255,255,0.2); border: none; color: #fff;
+  border-radius: 50%; width: 28px; height: 28px;
+  font-size: 1rem; cursor: pointer; line-height: 28px; text-align: center;
+}
+
+.sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+.sidebar-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 20px; border: none; background: transparent;
+  width: 100%; text-align: left; cursor: pointer;
+  font-size: 0.88rem; font-weight: 600; color: var(--text);
+  transition: background 0.15s;
+  border-left: 3px solid transparent;
+}
+.sidebar-item:hover { background: var(--row-alt); }
+.sidebar-item.active {
+  color: var(--h1); background: var(--row-alt);
+  border-left-color: var(--h1);
+}
+.sidebar-item .s-icon { font-size: 1.2rem; width: 24px; text-align: center; flex-shrink: 0; }
+
+.sidebar-divider {
+  height: 1px; background: var(--border);
+  margin: 8px 16px;
+}
+.sidebar-section-label {
+  font-size: 0.58rem; font-weight: 800; letter-spacing: 1.2px;
+  text-transform: uppercase; color: var(--subtext);
+  padding: 8px 20px 4px;
+}
+
+.sidebar-footer {
+  padding: 12px 16px 20px;
+  font-size: 0.6rem; color: var(--subtext); text-align: center;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Header ── */
+header {
+  background: linear-gradient(135deg, var(--h1), var(--h2));
+  color:#fff; padding:10px 14px; position:sticky; top:0; z-index:100;
+  box-shadow:0 2px 8px rgba(0,0,0,0.2);
+  transition:background 0.3s;
+}
+.header-top { display:flex; align-items:center; justify-content:space-between; }
+.header-left { display:flex; align-items:center; gap:10px; flex:1; min-width:0; }
+.menu-btn {
+  background: rgba(255,255,255,0.2); border: none; color: #fff;
+  border-radius: 8px; width: 34px; height: 34px;
+  font-size: 1.1rem; cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+header h1 {
+  font-size: 1rem; font-weight: 800;
+  font-family: 'Times New Roman', Times, serif;
+  letter-spacing: 0.3px;
+}
+header p  { font-size:0.65rem; opacity:0.8; margin-top:1px; }
+.header-save {
+  border:none; border-radius:8px; font-weight:700; cursor:pointer;
+  padding:7px 14px; font-size:0.75rem; white-space:nowrap; flex-shrink:0;
+  background:var(--accent); color:var(--accent-text);
+}
+.header-save:active { opacity:0.8; }
+.hbtn {
+  border:none; border-radius:8px; font-weight:700; cursor:pointer; flex:1;
+  padding:8px 6px; font-size:0.76rem; text-align:center;
+}
+.hbtn-accent { background:var(--accent); color:var(--accent-text); }
+.hbtn-ghost  { background:rgba(255,255,255,0.22); color:#fff; }
+.hbtn:active { opacity:0.8; }
+
+/* ── Bottom Nav ── */
+.bottom-nav {
+  position:fixed; bottom:0; left:0; right:0; height:62px;
+  background:var(--card-bg); border-top:1px solid var(--border);
+  display:flex; z-index:300; box-shadow:0 -2px 10px rgba(0,0,0,0.1);
+  transition:background 0.3s;
+}
+.nav-btn {
+  flex:1; display:flex; flex-direction:column; align-items:center;
+  justify-content:center; gap:3px; border:none; background:transparent;
+  cursor:pointer; font-size:0.6rem; font-weight:700; color:var(--subtext);
+  transition:color 0.2s;
+}
+.nav-btn .nav-icon { font-size:1.3rem; line-height:1; }
+.nav-btn.active { color:var(--h1); }
+.nav-btn.active .nav-icon { transform:scale(1.1); }
+
+/* ── Pages ── */
+.page { display:none; }
+.page.active { display:block; }
+#page-class.active { display:flex; flex-direction:column; height:calc(100vh - 62px); }
+
+/* ── Toast ── */
+.toast {
+  position:fixed; bottom:72px; left:50%;
+  transform:translateX(-50%) translateY(10px);
+  background:#333; color:#fff; padding:8px 20px;
+  border-radius:20px; font-size:0.8rem; font-weight:600;
+  opacity:0; transition:opacity 0.3s, transform 0.3s;
+  z-index:999; pointer-events:none;
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* ── Bottom Sheet Overlay / Panel ── */
+.overlay {
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45);
+  z-index:500; align-items:flex-end; justify-content:center;
+}
+.overlay.open { display:flex; }
+.panel {
+  background:var(--card-bg); border-radius:20px 20px 0 0; width:100%; max-width:480px;
+  padding:20px 16px 36px; box-shadow:0 -4px 24px rgba(0,0,0,0.18);
+  animation:slideUp 0.25s ease; max-height:88vh; overflow-y:auto;
+}
+@keyframes slideUp { from{transform:translateY(60px);opacity:0} to{transform:translateY(0);opacity:1} }
+.panel h2 { font-size:0.95rem; font-weight:800; color:var(--text); margin-bottom:4px; }
+.panel .sub { font-size:0.7rem; color:var(--subtext); margin-bottom:14px; }
+.panel-section { margin-bottom:18px; }
+.panel-section h3 { font-size:0.72rem; font-weight:800; letter-spacing:.8px; text-transform:uppercase; color:var(--subtext); margin-bottom:10px; }
+.close-panel {
+  width:100%; margin-top:14px; padding:11px;
+  background:#f0f0f0; border:none; border-radius:10px;
+  font-size:0.82rem; font-weight:700; color:#555; cursor:pointer;
+}
+
+/* ── Theme grid ── */
+.theme-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.theme-card {
+  border-radius:12px; overflow:hidden; cursor:pointer;
+  border:3px solid transparent; transition:border-color 0.2s, transform 0.15s;
+}
+.theme-card:active { transform:scale(0.96); }
+.theme-card.active { border-color:#333; }
+.theme-card .swatch { height:40px; }
+.theme-card .t-label {
+  background:#f5f5f5; text-align:center;
+  font-size:0.62rem; font-weight:700; color:#444; padding:4px 2px;
+}
+
+/* ── Font options ── */
+.font-family-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+.font-size-row { display:flex; gap:8px; }
+.opt-btn {
+  border:2px solid var(--border); border-radius:8px; padding:8px 6px;
+  background:var(--card-bg); cursor:pointer; font-size:0.75rem; font-weight:600;
+  color:var(--text); text-align:center; transition:border-color 0.2s, background 0.2s;
+}
+.opt-btn.active { border-color:var(--h1); background:var(--row-alt); color:var(--h1); }
+.opt-btn:active { opacity:0.8; }
+.font-size-row .opt-btn { flex:1; }
+
+/* ── Routine page ── */
+.section-label {
+  font-size:0.62rem; font-weight:800; letter-spacing:1.1px;
+  text-transform:uppercase; color:var(--section); padding:10px 10px 4px;
+}
+.table-wrapper { padding:0 8px 8px; }
+table {
+  border-collapse:collapse; width:100%; table-layout:fixed;
+  background:var(--card-bg); border-radius:10px; overflow:hidden;
+  box-shadow:0 2px 10px var(--card-shadow); transition:background 0.3s;
+}
+thead tr { background:linear-gradient(90deg,var(--h1),var(--h2)); color:#fff; }
+thead th { padding:7px 2px; font-size:0.6rem; font-weight:700; text-align:center; word-break:break-word; }
+thead th:first-child, tbody td:first-child { width:17%; }
+tbody tr:nth-child(even) { background:var(--row-alt); }
+tbody td { padding:0; border:1px solid var(--border); vertical-align:middle; }
+.time-cell {
+  padding:5px 3px; font-size:0.58rem; font-weight:700;
+  color:var(--time-fg); background:var(--time-bg);
+  text-align:center; word-break:break-word; line-height:1.3;
+}
+.editable {
+  display:block; width:100%; min-height:32px; padding:4px 2px;
+  font-size:0.62rem; font-family:inherit; color:var(--edit-color);
+  background:transparent; border:none; outline:none;
+  text-align:center; word-break:break-word; overflow-wrap:break-word;
+  white-space:pre-wrap; line-height:1.3; cursor:text;
+}
+.editable:focus { background:#fffde7; box-shadow:inset 0 0 0 2px var(--focus); border-radius:3px; color:#000; }
+.editable:empty::before { content:attr(data-placeholder); color:#ccc; }
+
+.reset-btn {
+  display:inline-block;
+  background:transparent; color:#c62828;
+  border:1px solid #c62828; border-radius:8px;
+  padding:5px 10px; font-size:0.58rem; font-weight:700; cursor:pointer;
+  opacity:0.7; float:right;
+}
+.reset-btn:active { opacity:1; background:#ffebee; }
+.page-footer { padding:4px 8px 14px; overflow:hidden; }
+
+/* ── Class Routine Page ── */
+.class-routine-page { padding: 0; display: flex; flex-direction: column; height: calc(100vh - 62px - 52px); }
+.class-table-wrapper { padding: 0 6px 0; overflow-x: auto; overflow-y: auto; flex: 1; display: flex; flex-direction: column; }
+.class-table-wrapper table { table-layout: fixed; width: var(--class-table-w, 100%); min-width: 380px; height: var(--class-table-h, 100%); border-collapse: collapse; }
+.class-table-wrapper thead { position: sticky; top: 0; z-index: 10; }
+.class-table-wrapper thead th:first-child { width: 13%; }
+.class-table-wrapper thead th { font-size: 0.62rem; padding: 6px 2px; word-break: break-word; vertical-align: middle; }
+/* editable period headers */
+.class-table-wrapper thead th .th-edit {
+  display: block; width: 100%; min-height: 36px; padding: 3px 2px;
+  font-size: 0.6rem; font-weight: 700; color: #fff;
+  background: transparent; border: none; outline: none;
+  text-align: center; word-break: break-word; white-space: pre-wrap;
+  line-height: 1.4; cursor: text; font-family: inherit;
+}
+.class-table-wrapper thead th .th-edit:focus {
+  background: rgba(255,255,255,0.2); border-radius: 3px;
+}
+.class-table-wrapper tbody tr { height: calc((100% - 52px) / 5); }
+.class-table-wrapper .day-cell {
+  padding: 6px 3px; font-size: 0.7rem; font-weight: 800;
+  color: var(--time-fg); background: var(--time-bg);
+  text-align: center; word-break: break-word; line-height: 1.4;
+  vertical-align: middle;
+}
+.class-table-wrapper .editable {
+  font-size: 0.72rem; min-height: 40px; padding: 4px 3px;
+  display: flex; align-items: center; justify-content: center;
+}
+.class-page-footer {
+  padding: 4px 8px 8px; overflow: hidden; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+/* ── Table size adjust button ── */
+.tbl-adjust-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--h1); color: #fff;
+  border: none; border-radius: 8px;
+  padding: 5px 10px; font-size: 0.6rem; font-weight: 700; cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+}
+.tbl-adjust-btn:active { opacity: 0.8; }
+
+/* ── Size adjust panel ── */
+.adjust-panel-section { margin-bottom: 20px; }
+.adjust-panel-section h3 {
+  font-size: 0.72rem; font-weight: 800; letter-spacing: .8px;
+  text-transform: uppercase; color: var(--subtext); margin-bottom: 12px;
+}
+.slider-row {
+  display: flex; align-items: center; gap: 10px;
+}
+.slider-row label {
+  font-size: 0.7rem; font-weight: 700; color: var(--text);
+  width: 56px; flex-shrink: 0;
+}
+.slider-row input[type=range] {
+  flex: 1; accent-color: var(--h1); height: 4px; cursor: pointer;
+}
+.slider-row .slider-val {
+  font-size: 0.72rem; font-weight: 800; color: var(--h1);
+  width: 40px; text-align: right; flex-shrink: 0;
+}
+.adjust-reset-row {
+  margin-top: 6px;
+  display: flex; gap: 8px;
+}
+.adjust-reset-btn {
+  flex: 1; padding: 8px; border: 1.5px solid var(--border);
+  border-radius: 8px; background: var(--card-bg);
+  font-size: 0.72rem; font-weight: 700; color: var(--subtext); cursor: pointer;
+}
+.adjust-reset-btn:active { background: var(--row-alt); }
+
+/* ── Salary page ── */
+.salary-page { padding:0 0 10px; }
+.month-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 14px 0;
+}
+.month-nav { display:flex; align-items:center; gap:10px; }
+.month-nav button {
+  background:var(--h1); color:#fff; border:none; border-radius:8px;
+  width:32px; height:32px; font-size:1rem; cursor:pointer; font-weight:700;
+}
+.month-nav button:active { opacity:0.8; }
+.month-title { font-size:1rem; font-weight:800; color:var(--text); min-width:130px; text-align:center; }
+
+.summary-cards {
+  display:grid; grid-template-columns:1fr 1fr; gap:8px;
+  padding:12px 10px 6px;
+}
+.s-card {
+  background:var(--card-bg); border-radius:12px; padding:12px 10px;
+  box-shadow:0 2px 8px var(--card-shadow); text-align:center;
+}
+.s-card .s-label { font-size:0.6rem; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--subtext); margin-bottom:4px; }
+.s-card .s-amount { font-size:1.15rem; font-weight:800; color:var(--h1); }
+.s-card.highlight { background:linear-gradient(135deg,var(--h1),var(--h2)); }
+.s-card.highlight .s-label { color:rgba(255,255,255,0.8); }
+.s-card.highlight .s-amount { color:#fff; }
+
+.salary-section-label {
+  font-size:0.62rem; font-weight:800; letter-spacing:1px;
+  text-transform:uppercase; color:var(--section); padding:10px 12px 4px;
+}
+.student-list { padding:0 8px; display:flex; flex-direction:column; gap:6px; }
+.student-card {
+  background:var(--card-bg); border-radius:12px;
+  box-shadow:0 1px 6px var(--card-shadow);
+  overflow:hidden; transition:background 0.3s;
+}
+.student-card-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 12px; cursor:pointer; user-select:none;
+}
+.student-name { font-size:0.82rem; font-weight:700; color:var(--text); }
+.student-meta { font-size:0.62rem; color:var(--subtext); margin-top:1px; }
+.student-badge {
+  font-size:0.7rem; font-weight:700; padding:3px 10px;
+  border-radius:20px; white-space:nowrap;
+}
+.badge-paid   { background:#c8e6c9; color:#1b5e20; }
+.badge-unpaid { background:#ffcdd2; color:#b71c1c; }
+.badge-partial{ background:#fff9c4; color:#f57f17; }
+
+.student-card-body {
+  display:none; padding:0 12px 12px; border-top:1px solid var(--border);
+}
+.student-card-body.open { display:block; }
+
+.salary-input-row {
+  display:flex; align-items:center; gap:8px; margin-top:10px;
+}
+.salary-input-row label { font-size:0.7rem; font-weight:700; color:var(--subtext); width:70px; flex-shrink:0; }
+.salary-input-row input {
+  flex:1; border:1.5px solid var(--border); border-radius:8px;
+  padding:7px 10px; font-size:0.82rem; font-family:inherit;
+  background:var(--bg); color:var(--text); outline:none;
+}
+.salary-input-row input:focus { border-color:var(--h1); background:var(--card-bg); }
+
+.status-row { display:flex; gap:6px; margin-top:10px; }
+.status-opt {
+  flex:1; border:2px solid var(--border); border-radius:8px;
+  padding:6px 4px; font-size:0.68rem; font-weight:700; text-align:center;
+  cursor:pointer; background:var(--card-bg); color:var(--subtext);
+  transition:all 0.15s;
+}
+.status-opt.sel-paid    { border-color:#2e7d32; background:#c8e6c9; color:#1b5e20; }
+.status-opt.sel-partial { border-color:#f9a825; background:#fff9c4; color:#f57f17; }
+.status-opt.sel-unpaid  { border-color:#c62828; background:#ffcdd2; color:#b71c1c; }
+
+.note-row { margin-top:10px; }
+.note-row label { font-size:0.7rem; font-weight:700; color:var(--subtext); display:block; margin-bottom:4px; }
+.note-row textarea {
+  width:100%; border:1.5px solid var(--border); border-radius:8px;
+  padding:7px 10px; font-size:0.78rem; font-family:inherit;
+  background:var(--bg); color:var(--text); outline:none; resize:none; height:54px;
+}
+.note-row textarea:focus { border-color:var(--h1); }
+
+.add-student-btn {
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  margin:10px 8px 0; width:calc(100% - 16px);
+  border:2px dashed var(--border); border-radius:12px;
+  background:transparent; color:var(--section); font-size:0.8rem; font-weight:700;
+  padding:11px; cursor:pointer;
+}
+.add-student-btn:active { opacity:0.7; }
+
+.del-btn {
+  margin-top:10px; width:100%; padding:7px; border:none; border-radius:8px;
+  background:#ffebee; color:#c62828; font-size:0.72rem; font-weight:700; cursor:pointer;
+}
+.del-btn:active { opacity:0.8; }
+
+/* ── Quick Search bar ── */
+.search-bar-wrap {
+  padding: 8px 10px 4px;
+  position: sticky; top: 0; z-index: 90;
+}
+.search-bar {
+  width: 100%; padding: 8px 12px 8px 34px;
+  border: 1.5px solid var(--border); border-radius: 20px;
+  background: var(--card-bg); color: var(--text);
+  font-size: 0.78rem; font-family: inherit; outline: none;
+  transition: border-color 0.2s;
+}
+.search-bar:focus { border-color: var(--h1); }
+.search-bar-wrap { position: relative; }
+.search-icon {
+  position: absolute; left: 20px; top: 50%;
+  transform: translateY(-50%); font-size: 0.85rem; pointer-events: none;
+  color: var(--subtext);
+}
+
+/* ── Notes page ── */
+.notes-page { padding: 8px 10px 10px; }
+.notes-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.note-card {
+  background: var(--card-bg); border-radius: 12px;
+  box-shadow: 0 1px 6px var(--card-shadow); padding: 12px 14px;
+  position: relative;
+}
+.note-card .note-title-input {
+  font-size: 0.82rem; font-weight: 700; color: var(--text);
+  border: none; outline: none; background: transparent;
+  width: calc(100% - 28px); font-family: inherit;
+  margin-bottom: 6px;
+}
+.note-card .note-body-input {
+  font-size: 0.75rem; color: var(--text);
+  border: none; outline: none; background: transparent;
+  width: 100%; font-family: inherit; resize: none;
+  min-height: 54px; line-height: 1.5;
+}
+.note-card .note-del {
+  position: absolute; top: 10px; right: 10px;
+  background: none; border: none; font-size: 0.9rem; cursor: pointer; color: #c62828;
+}
+.note-card .note-date {
+  font-size: 0.58rem; color: var(--subtext); margin-top: 6px;
+}
+.add-note-btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; border: 2px dashed var(--border); border-radius: 12px;
+  background: transparent; color: var(--section); font-size: 0.82rem; font-weight: 700;
+  padding: 12px; cursor: pointer; margin-top: 4px;
+}
+.add-note-btn:active { opacity: 0.7; }
+
+/* ── Appearance panel note ── */
+.appearance-info {
+  background: var(--row-alt); border-radius: 10px; padding: 10px 12px;
+  font-size: 0.7rem; color: var(--subtext); margin-bottom: 14px;
+  border-left: 3px solid var(--h1);
+}
+</style>
+</head>
+<body>
+
+<!-- Sidebar overlay backdrop -->
+<div id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<!-- Left Sidebar -->
+<div id="sidebar">
+  <div class="sidebar-header">
+    <button class="sidebar-close" onclick="closeSidebar()">✕</button>
+    <div class="app-name">📚 Hridoy's Schedules</div>
+    <div class="app-sub">Your personal teaching hub</div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-section-label">Pages</div>
+    <button class="sidebar-item active" id="sb-routine" onclick="switchPage('routine');closeSidebar()">
+      <span class="s-icon">📋</span> Tuition Routine
+    </button>
+    <button class="sidebar-item" id="sb-class" onclick="switchPage('class');closeSidebar()">
+      <span class="s-icon">🏫</span> Class Routine
+    </button>
+    <button class="sidebar-item" id="sb-salary" onclick="switchPage('salary');closeSidebar()">
+      <span class="s-icon">💰</span> Salary Tracker
+    </button>
+    <button class="sidebar-item" id="sb-notes" onclick="switchPage('notes');closeSidebar()">
+      <span class="s-icon">📝</span> Notes
+    </button>
+
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section-label">Tools</div>
+    <button class="sidebar-item" onclick="openSettings();closeSidebar()">
+      <span class="s-icon">🎨</span> Appearance
+    </button>
+  </nav>
+  <div class="sidebar-footer">
+    Hridoy's Schedules • All data saved locally
+  </div>
+</div>
+
+<!-- Header -->
+<header id="mainHeader">
+  <div class="header-top">
+    <div class="header-left">
+      <button class="menu-btn" onclick="openSidebar()" title="Menu">☰</button>
+      <div style="min-width:0">
+        <h1 id="headerTitle">📋 Tuition Routine</h1>
+        <p id="headerSub">Tap any cell to edit</p>
+      </div>
+    </div>
+    <button class="header-save" id="actionBtn" onclick="saveAll()">💾 Save</button>
+  </div>
+</header>
+
+<!-- Appearance Settings overlay -->
+<div class="overlay" id="settingsOverlay" onclick="overlayClick(event,'settingsOverlay')">
+  <div class="panel">
+    <h2>🎨 Appearance</h2>
+    <p class="sub">Customize your theme, font & size</p>
+    <div class="appearance-info">Changes are saved automatically and persist across sessions.</div>
+
+    <div class="panel-section">
+      <h3>🎨 Color Theme</h3>
+      <div class="theme-grid" id="themeGrid"></div>
+    </div>
+
+    <div class="panel-section">
+      <h3>🔤 Font Family</h3>
+      <div class="font-family-grid" id="fontFamilyGrid"></div>
+    </div>
+
+    <div class="panel-section">
+      <h3>🔡 Font Size</h3>
+      <div class="font-size-row" id="fontSizeRow"></div>
+    </div>
+
+    <button class="close-panel" onclick="closeOverlay('settingsOverlay')">Done</button>
+  </div>
+</div>
+
+<!-- Add student overlay -->
+<div class="overlay" id="addStudentOverlay" onclick="overlayClick(event,'addStudentOverlay')">
+  <div class="panel">
+    <h2>➕ Add Student</h2>
+    <p class="sub">Enter student/batch details</p>
+    <div class="salary-input-row">
+      <label>Name</label>
+      <input type="text" id="newStudentName" placeholder="e.g. Redoan batch">
+    </div>
+    <div class="salary-input-row">
+      <label>Fee (৳)</label>
+      <input type="number" id="newStudentFee" placeholder="e.g. 2000">
+    </div>
+    <button class="hbtn hbtn-accent" style="margin-top:14px;width:100%;padding:10px;border-radius:10px;" onclick="confirmAddStudent()">Add Student</button>
+    <button class="close-panel" onclick="closeOverlay('addStudentOverlay')">Cancel</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- PAGE: Tuition Routine -->
+<div class="page active" id="page-routine">
+  <div class="section-label">Sunday – Thursday</div>
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th>Time</th><th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th></tr></thead>
+      <tbody id="body-weekday"></tbody>
+    </table>
+  </div>
+  <div class="section-label">Friday – Saturday</div>
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th>Time</th><th>Friday</th><th>Saturday</th></tr></thead>
+      <tbody id="body-weekend"></tbody>
+    </table>
+  </div>
+  <div class="page-footer">
+    <button class="reset-btn" onclick="confirmReset()">↺ Reset Routine</button>
+  </div>
+</div>
+
+<!-- PAGE: Class Routine -->
+<div class="page" id="page-class">
+  <div class="class-routine-page">
+    <div class="section-label" style="flex-shrink:0">📅 Class Schedule</div>
+    <div class="class-table-wrapper">
+      <table id="class-table">
+        <thead id="class-thead"></thead>
+        <tbody id="body-class"></tbody>
+      </table>
+    </div>
+    <div class="class-page-footer">
+      <button class="reset-btn" onclick="confirmClassReset()">↺ Reset</button>
+      <button class="tbl-adjust-btn" onclick="openTableAdjust()">⚙ Adjust Size</button>
+    </div>
+  </div>
+</div>
+
+<!-- Table size adjust overlay -->
+<div class="overlay" id="tableAdjustOverlay" onclick="overlayClick(event,'tableAdjustOverlay')">
+  <div class="panel">
+    <h2>⚙ Table Size</h2>
+    <p class="sub">Drag to resize rows and columns</p>
+
+    <div class="adjust-panel-section">
+      <h3>📏 Table Height</h3>
+      <div class="slider-row">
+        <label>Height</label>
+        <input type="range" id="sliderH" min="60" max="300" step="5" oninput="applyTableSize()">
+        <span class="slider-val" id="valH">100%</span>
+      </div>
+    </div>
+
+    <div class="adjust-panel-section">
+      <h3>📐 Table Width</h3>
+      <div class="slider-row">
+        <label>Width</label>
+        <input type="range" id="sliderW" min="80" max="300" step="5" oninput="applyTableSize()">
+        <span class="slider-val" id="valW">100%</span>
+      </div>
+    </div>
+
+    <div class="adjust-panel-section">
+      <h3>🔡 Cell Font Size</h3>
+      <div class="slider-row">
+        <label>Font</label>
+        <input type="range" id="sliderF" min="7" max="20" step="1" oninput="applyTableSize()">
+        <span class="slider-val" id="valF">0.72rem</span>
+      </div>
+    </div>
+
+    <div class="adjust-reset-row">
+      <button class="adjust-reset-btn" onclick="resetTableSize()">↺ Reset to Default</button>
+    </div>
+    <button class="close-panel" onclick="closeOverlay('tableAdjustOverlay')">Done</button>
+  </div>
+</div>
+
+<!-- PAGE: Salary -->
+<div class="page" id="page-salary">
+  <div class="salary-page">
+    <div class="month-header">
+      <div class="month-nav">
+        <button onclick="changeMonth(-1)">‹</button>
+        <div class="month-title" id="monthTitle"></div>
+        <button onclick="changeMonth(1)">›</button>
+      </div>
+    </div>
+    <div class="summary-cards">
+      <div class="s-card highlight">
+        <div class="s-label">Total Expected</div>
+        <div class="s-amount" id="totalExpected">৳0</div>
+      </div>
+      <div class="s-card highlight">
+        <div class="s-label">Total Received</div>
+        <div class="s-amount" id="totalReceived">৳0</div>
+      </div>
+      <div class="s-card">
+        <div class="s-label">Paid</div>
+        <div class="s-amount" id="countPaid">0</div>
+      </div>
+      <div class="s-card">
+        <div class="s-label">Pending</div>
+        <div class="s-amount" id="countPending">0</div>
+      </div>
+    </div>
+    <div class="salary-section-label">Students / Batches</div>
+    <div class="student-list" id="studentList"></div>
+    <button class="add-student-btn" onclick="openAddStudent()">＋ Add Student / Batch</button>
+  </div>
+</div>
+
+<!-- PAGE: Notes -->
+<div class="page" id="page-notes">
+  <div class="notes-page">
+    <div class="section-label">Quick Notes</div>
+    <div class="notes-list" id="notesList"></div>
+    <button class="add-note-btn" onclick="addNote()">＋ Add Note</button>
+  </div>
+</div>
+
+<!-- Bottom Nav -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="nav-routine" onclick="switchPage('routine')">
+    <span class="nav-icon">📋</span>Routine
+  </button>
+  <button class="nav-btn" id="nav-class" onclick="switchPage('class')">
+    <span class="nav-icon">🏫</span>Class
+  </button>
+  <button class="nav-btn" id="nav-salary" onclick="switchPage('salary')">
+    <span class="nav-icon">💰</span>Salary
+  </button>
+  <button class="nav-btn" id="nav-notes" onclick="switchPage('notes')">
+    <span class="nav-icon">📝</span>Notes
+  </button>
+</nav>
+
+<script>
+/* ════════════════ THEMES ════════════════ */
+const THEMES = [
+  {id:"teal",   name:"Teal",   h1:"#00695c",h2:"#00897b",accent:"#ffd54f",at:"#004d40",timeBg:"#b2dfdb",timeFg:"#00695c",rowAlt:"#f0faf9",border:"#b2dfdb",section:"#00695c",bg:"#e0f2f1",focus:"#ffd54f",ec:"#004d40",dark:false},
+  {id:"indigo", name:"Indigo", h1:"#283593",h2:"#3f51b5",accent:"#ffca28",at:"#1a237e",timeBg:"#c5cae9",timeFg:"#283593",rowAlt:"#f5f6ff",border:"#c5cae9",section:"#3949ab",bg:"#e8eaf6",focus:"#ffca28",ec:"#1a237e",dark:false},
+  {id:"purple", name:"Purple", h1:"#6a1b9a",h2:"#8e24aa",accent:"#f06292",at:"#4a148c",timeBg:"#e1bee7",timeFg:"#6a1b9a",rowAlt:"#fce4ec",border:"#e1bee7",section:"#7b1fa2",bg:"#f3e5f5",focus:"#f06292",ec:"#4a148c",dark:false},
+  {id:"sunset", name:"Sunset", h1:"#e65100",h2:"#f57c00",accent:"#fff176",at:"#bf360c",timeBg:"#ffe0b2",timeFg:"#bf360c",rowAlt:"#fff8f0",border:"#ffcc80",section:"#e65100",bg:"#fff3e0",focus:"#fff176",ec:"#bf360c",dark:false},
+  {id:"rose",   name:"Rose",   h1:"#880e4f",h2:"#c2185b",accent:"#f8bbd0",at:"#880e4f",timeBg:"#fce4ec",timeFg:"#880e4f",rowAlt:"#fff5f8",border:"#f8bbd0",section:"#c2185b",bg:"#fce4ec",focus:"#f48fb1",ec:"#880e4f",dark:false},
+  {id:"slate",  name:"Slate",  h1:"#263238",h2:"#37474f",accent:"#80cbc4",at:"#263238",timeBg:"#cfd8dc",timeFg:"#263238",rowAlt:"#f5f7f8",border:"#cfd8dc",section:"#37474f",bg:"#eceff1",focus:"#80cbc4",ec:"#1c313a",dark:false},
+  {id:"forest", name:"Forest", h1:"#1b5e20",h2:"#2e7d32",accent:"#a5d6a7",at:"#1b5e20",timeBg:"#c8e6c9",timeFg:"#1b5e20",rowAlt:"#f1f8f1",border:"#c8e6c9",section:"#2e7d32",bg:"#e8f5e9",focus:"#66bb6a",ec:"#1b5e20",dark:false},
+  {id:"navy",   name:"Navy",   h1:"#0d1b4b",h2:"#1a3a8f",accent:"#fbbf24",at:"#0d1b4b",timeBg:"#bfcfff",timeFg:"#0d1b4b",rowAlt:"#f0f3ff",border:"#bfcfff",section:"#1a3a8f",bg:"#e8ecff",focus:"#fbbf24",ec:"#0d1b4b",dark:false},
+  {id:"dark",   name:"Dark",   h1:"#111827",h2:"#1f2937",accent:"#34d399",at:"#111827",timeBg:"#374151",timeFg:"#d1fae5",rowAlt:"#1f2937",border:"#374151",section:"#34d399",bg:"#111827",focus:"#34d399",ec:"#d1fae5",dark:true},
+];
+
+const FONTS = [
+  {id:"system",  name:"System",       val:"'Segoe UI',system-ui,sans-serif"},
+  {id:"roboto",  name:"Roboto",       val:"'Roboto',sans-serif"},
+  {id:"times",   name:"Times New Roman", val:"'Times New Roman',Times,serif"},
+  {id:"georgia", name:"Georgia",      val:"Georgia,serif"},
+  {id:"mono",    name:"Monospace",    val:"'Courier New',monospace"},
+];
+const SIZES = [
+  {id:"sm", name:"Small",   val:"0.82rem"},
+  {id:"md", name:"Medium",  val:"1rem"},
+  {id:"lg", name:"Large",   val:"1.15rem"},
+  {id:"xl", name:"X-Large", val:"1.3rem"},
+];
+
+const KEY_THEME = "rt_theme";
+const KEY_FONT  = "rt_font";
+const KEY_SIZE  = "rt_size";
+const KEY_WD    = "routine_wd_v2";
+const KEY_WE    = "routine_we_v2";
+const KEY_CR    = "routine_class_v1";
+const KEY_STUD  = "rt_students";
+const KEY_SAL   = "rt_salary";
+const KEY_NOTES = "rt_notes";
+const KEY_TBLSZ = "rt_tblsize";
+
+// Default table size values
+const TBLSZ_DEF = { h: 100, w: 100, f: 11 }; // h=%, w=%, f=px
+
+let currentTheme = THEMES[0];
+let currentFont  = FONTS[0];
+let currentSize  = SIZES[1];
+let currentPage  = "routine";
+let currentMonth = new Date();
+let students = [];
+let salaryData = {};
+let notes = [];
+
+/* ── Sidebar ── */
+function openSidebar() {
+  document.getElementById("sidebar").classList.add("open");
+  document.getElementById("sidebarOverlay").classList.add("open");
+}
+function closeSidebar() {
+  document.getElementById("sidebar").classList.remove("open");
+  document.getElementById("sidebarOverlay").classList.remove("open");
+}
+
+/* ── Table Size Adjust ── */
+let tblSize = {...TBLSZ_DEF};
+
+function openTableAdjust() {
+  // sync sliders to current values
+  document.getElementById("sliderH").value = tblSize.h;
+  document.getElementById("sliderW").value = tblSize.w;
+  document.getElementById("sliderF").value = tblSize.f;
+  updateSliderLabels();
+  document.getElementById("tableAdjustOverlay").classList.add("open");
+}
+
+function updateSliderLabels() {
+  document.getElementById("valH").textContent = tblSize.h + "%";
+  document.getElementById("valW").textContent = tblSize.w + "%";
+  document.getElementById("valF").textContent = tblSize.f + "px";
+}
+
+function applyTableSize() {
+  tblSize.h = +document.getElementById("sliderH").value;
+  tblSize.w = +document.getElementById("sliderW").value;
+  tblSize.f = +document.getElementById("sliderF").value;
+  updateSliderLabels();
+  applyTableSizeToDOM();
+  try { localStorage.setItem(KEY_TBLSZ, JSON.stringify(tblSize)); } catch(e) {}
+}
+
+function applyTableSizeToDOM() {
+  const wrapper = document.querySelector(".class-table-wrapper");
+  const table   = document.getElementById("class-table");
+  if (!table || !wrapper) return;
+
+  // Height: percentage of viewport minus header/nav
+  const baseH = window.innerHeight - 62 - 52 - 60; // approx available px
+  const targetH = Math.round(baseH * tblSize.h / 100);
+  table.style.height = targetH + "px";
+
+  // Width: percentage — allow wider than screen for scroll
+  table.style.width = tblSize.w + "%";
+  table.style.minWidth = Math.max(380, Math.round(380 * tblSize.w / 100)) + "px";
+
+  // Font size on cells and headers
+  const fs = tblSize.f + "px";
+  table.querySelectorAll(".editable").forEach(el => el.style.fontSize = fs);
+  table.querySelectorAll(".th-edit").forEach(el => el.style.fontSize = fs);
+  table.querySelectorAll(".day-cell").forEach(el => el.style.fontSize = fs);
+}
+
+function resetTableSize() {
+  tblSize = {...TBLSZ_DEF};
+  document.getElementById("sliderH").value = tblSize.h;
+  document.getElementById("sliderW").value = tblSize.w;
+  document.getElementById("sliderF").value = tblSize.f;
+  updateSliderLabels();
+  applyTableSizeToDOM();
+  try { localStorage.removeItem(KEY_TBLSZ); } catch(e) {}
+  toast("↺ Table size reset");
+}
+
+/* ── Apply theme ── */
+function applyTheme(t, save=true) {
+  currentTheme = t;
+  const r = document.documentElement.style;
+  r.setProperty("--h1",t.h1); r.setProperty("--h2",t.h2);
+  r.setProperty("--accent",t.accent); r.setProperty("--accent-text",t.at);
+  r.setProperty("--time-bg",t.timeBg); r.setProperty("--time-fg",t.timeFg);
+  r.setProperty("--row-alt",t.rowAlt); r.setProperty("--border",t.border);
+  r.setProperty("--section",t.section); r.setProperty("--bg",t.bg);
+  r.setProperty("--focus",t.focus); r.setProperty("--edit-color",t.ec);
+  if(t.dark){
+    r.setProperty("--card-bg","#1f2937"); r.setProperty("--card-shadow","rgba(0,0,0,0.3)");
+    r.setProperty("--text","#f9fafb"); r.setProperty("--subtext","#9ca3af");
+  } else {
+    r.setProperty("--card-bg","#fff"); r.setProperty("--card-shadow","rgba(0,0,0,0.08)");
+    r.setProperty("--text","#111"); r.setProperty("--subtext","#555");
+  }
+  if(save) try{localStorage.setItem(KEY_THEME,t.id)}catch(e){}
+  document.querySelectorAll(".theme-card").forEach(c=>c.classList.toggle("active",c.dataset.id===t.id));
+}
+
+function applyFont(f, save=true) {
+  currentFont = f;
+  document.documentElement.style.setProperty("--font-family", f.val);
+  if(save) try{localStorage.setItem(KEY_FONT,f.id)}catch(e){}
+  document.querySelectorAll(".ff-btn").forEach(b=>b.classList.toggle("active",b.dataset.id===f.id));
+}
+
+function applySize(s, save=true) {
+  currentSize = s;
+  document.documentElement.style.setProperty("--font-size", s.val);
+  if(save) try{localStorage.setItem(KEY_SIZE,s.id)}catch(e){}
+  document.querySelectorAll(".fs-btn").forEach(b=>b.classList.toggle("active",b.dataset.id===s.id));
+}
+
+/* ── Settings panel ── */
+function buildSettings() {
+  const tg = document.getElementById("themeGrid"); tg.innerHTML="";
+  THEMES.forEach(t=>{
+    const c=document.createElement("div"); c.className="theme-card"+(t.id===currentTheme.id?" active":"");
+    c.dataset.id=t.id;
+    c.innerHTML=`<div class="swatch" style="background:linear-gradient(135deg,${t.h1},${t.h2})"></div><div class="t-label">${t.name}</div>`;
+    c.onclick=()=>{applyTheme(t);buildSettings();};
+    tg.appendChild(c);
+  });
+  const fg = document.getElementById("fontFamilyGrid"); fg.innerHTML="";
+  FONTS.forEach(f=>{
+    const b=document.createElement("button");
+    b.className="opt-btn ff-btn"+(f.id===currentFont.id?" active":"");
+    b.dataset.id=f.id; b.style.fontFamily=f.val; b.textContent=f.name;
+    b.onclick=()=>{applyFont(f);buildSettings();};
+    fg.appendChild(b);
+  });
+  const sr = document.getElementById("fontSizeRow"); sr.innerHTML="";
+  SIZES.forEach(s=>{
+    const b=document.createElement("button");
+    b.className="opt-btn fs-btn"+(s.id===currentSize.id?" active":"");
+    b.dataset.id=s.id; b.style.fontSize=s.val; b.textContent=s.name;
+    b.onclick=()=>{applySize(s);buildSettings();};
+    sr.appendChild(b);
+  });
+}
+function openSettings() { buildSettings(); document.getElementById("settingsOverlay").classList.add("open"); }
+
+/* ── Overlay helpers ── */
+function closeOverlay(id) { document.getElementById(id).classList.remove("open"); }
+function overlayClick(e,id) { if(e.target===document.getElementById(id)) closeOverlay(id); }
+
+/* ── Page switching ── */
+const PAGE_META = {
+  routine: { title:"📋 Tuition Routine", sub:"Tap any cell to edit",        btn:"💾 Save", action:()=>saveAll() },
+  class:   { title:"🏫 Class Routine",   sub:"Your personal class schedule", btn:"💾 Save", action:()=>saveClassRoutine() },
+  salary:  { title:"💰 Salary Tracker",  sub:"Track monthly payments",       btn:"💾 Save", action:()=>saveSalary() },
+  notes:   { title:"📝 Notes",           sub:"Quick personal notes",         btn:"＋ Note",  action:()=>addNote() },
+};
+
+function switchPage(name) {
+  currentPage = name;
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  document.getElementById("page-"+name).classList.add("active");
+  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
+  document.getElementById("nav-"+name)?.classList.add("active");
+  document.querySelectorAll(".sidebar-item").forEach(b=>b.classList.remove("active"));
+  document.getElementById("sb-"+name)?.classList.add("active");
+
+  const m = PAGE_META[name];
+  document.getElementById("headerTitle").textContent = m.title;
+  document.getElementById("headerSub").textContent = m.sub;
+  document.getElementById("actionBtn").textContent = m.btn;
+  document.getElementById("actionBtn").onclick = m.action;
+
+  if(name==="salary") renderSalaryPage();
+  if(name==="notes")  renderNotes();
+  if(name==="class")  setTimeout(applyTableSizeToDOM, 30);
+}
+
+/* ════════════ TUITION ROUTINE ════════════ */
+const DEFAULT_WEEKDAY = [
+  {time:"7:30-8:30",  cells:["Redoan batch","","Zara","Redoan batch","Redoan batch"]},
+  {time:"3:30-4:30",  cells:["10 batch","Class 8 batch","8 batch","8 batch","10 batch"]},
+  {time:"4:30-5:30",  cells:["Maisha batch","Fiha batch","Orpi","",""]},
+  {time:"5:30-6:30",  cells:["","","","",""]},
+  {time:"6:30-7:30",  cells:["Soha Sinha","","Soha Sinha","Soha",""]},
+  {time:"7:30-8:30",  cells:["Shovo","","Shovo","Shuvo",""]},
+  {time:"8:30-9:30",  cells:["Toma Sayema","","Toma","Sayema","Toma"]},
+];
+const DEFAULT_WEEKEND = [
+  {time:"8:00-9:00",   cells:["",""]},
+  {time:"9:00-10:00",  cells:["Safia","Safia"]},
+  {time:"10:00-11:00", cells:["Orpi","Orpi"]},
+  {time:"11:00-12:00", cells:["Zara",""]},
+  {time:"12:00-1:00",  cells:["8 batch",""]},
+  {time:"4:00-5:00",   cells:["Fiha Batch","Fiha Batch"]},
+  {time:"5:00-6:00",   cells:["Sinha",""]},
+  {time:"6:00-7:00",   cells:["Zara","Sayema"]},
+];
+
+/* ════════════ CLASS ROUTINE ════════════ */
+// periods[] = editable column headers
+// rows: each day has cells[] matching periods length
+const DEFAULT_CLASS_PERIODS = [
+  "9:00-9:50","9:50-10:40","10:40-11:30","11:30-12:20","12:20-1:00","1:40-2:30","2:30-3:20"
+];
+const DEFAULT_CLASS_ROWS = [
+  {day:"Sunday",    cells:["JD","SS","Meghnadh shaha","KNI","Surma","","SMND"]},
+  {day:"Monday",    cells:["SMND","","","","Meghnadh shaha","KNI","SURMA"]},
+  {day:"Tuesday",   cells:["NJ","","Surma","JD","BS+HUM 9","BS+HUM 10","SS"]},
+  {day:"Wednesday", cells:["","KNI","NJ/AKA","","SK","",""]},
+  {day:"Thursday",  cells:["Sk","SS/JD","AKA","NJ","Smnd","",""]},
+];
+const DEFAULT_CLASS = { periods: DEFAULT_CLASS_PERIODS, rows: DEFAULT_CLASS_ROWS };
+
+function buildClassTable(data) {
+  // data = { periods:[], rows:[] }
+  const periods = data.periods || DEFAULT_CLASS_PERIODS;
+  const rows    = data.rows    || DEFAULT_CLASS_ROWS;
+
+  // Build editable header
+  const thead = document.getElementById("class-thead");
+  thead.innerHTML = "";
+  const tr = document.createElement("tr");
+  // Corner cell
+  const thC = document.createElement("th");
+  thC.textContent = "Day";
+  tr.appendChild(thC);
+  periods.forEach((p, pi) => {
+    const th = document.createElement("th");
+    const div = document.createElement("div");
+    div.className = "th-edit";
+    div.contentEditable = "true";
+    div.setAttribute("data-pi", pi);
+    div.textContent = p;
+    div.addEventListener("blur", saveClassRoutine);
+    th.appendChild(div);
+    tr.appendChild(th);
+  });
+  thead.appendChild(tr);
+
+  // Build body rows
+  const tbody = document.getElementById("body-class");
+  tbody.innerHTML = "";
+  rows.forEach((row, ri) => {
+    const tr = document.createElement("tr");
+    const tdDay = document.createElement("td");
+    tdDay.className = "day-cell";
+    tdDay.textContent = row.day;
+    tr.appendChild(tdDay);
+    row.cells.forEach((val, ci) => {
+      const td = document.createElement("td");
+      const div = document.createElement("div");
+      div.className = "editable";
+      div.contentEditable = "true";
+      div.setAttribute("data-placeholder", "—");
+      div.setAttribute("data-ri", ri);
+      div.setAttribute("data-ci", ci);
+      div.textContent = val.trim();
+      div.addEventListener("blur", saveClassRoutine);
+      td.appendChild(div);
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+function collectClassTable() {
+  const periods = [];
+  document.querySelectorAll("#class-thead .th-edit").forEach(d => {
+    periods.push(d.textContent.trim());
+  });
+  const rows = JSON.parse(JSON.stringify(DEFAULT_CLASS_ROWS));
+  document.querySelectorAll("#body-class .editable").forEach(d => {
+    rows[+d.dataset.ri].cells[+d.dataset.ci] = d.textContent.trim();
+  });
+  return { periods, rows };
+}
+
+function saveClassRoutine() {
+  lsSet(KEY_CR, collectClassTable());
+  toast("✓ Class routine saved");
+}
+function confirmClassReset() {
+  if(confirm("Reset class routine to original?")) {
+    localStorage.removeItem(KEY_CR);
+    buildClassTable(DEFAULT_CLASS);
+    toast("↺ Class routine reset");
+  }
+}
+
+function lsGet(key,def){try{const s=localStorage.getItem(key);if(s)return JSON.parse(s);}catch(e){}return JSON.parse(JSON.stringify(def));}
+function lsSet(key,val){try{localStorage.setItem(key,JSON.stringify(val));}catch(e){}}
+
+function buildTable(tbodyId, data) {
+  const tbody = document.getElementById(tbodyId); tbody.innerHTML="";
+  data.forEach((row,ri)=>{
+    const tr=document.createElement("tr");
+    const tdT=document.createElement("td"); tdT.className="time-cell"; tdT.textContent=row.time||"";
+    tr.appendChild(tdT);
+    row.cells.forEach((val,ci)=>{
+      const td=document.createElement("td");
+      const div=document.createElement("div"); div.className="editable"; div.contentEditable="true";
+      div.setAttribute("data-placeholder","—"); div.setAttribute("data-ri",ri); div.setAttribute("data-ci",ci);
+      div.textContent=val.trim(); div.addEventListener("blur",saveAll);
+      td.appendChild(div); tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+function collectTable(tbodyId, def) {
+  const result=JSON.parse(JSON.stringify(def));
+  document.getElementById(tbodyId).querySelectorAll(".editable").forEach(d=>{
+    result[+d.dataset.ri].cells[+d.dataset.ci]=d.textContent.trim();
+  });
+  return result;
+}
+
+function saveAll() {
+  lsSet(KEY_WD, collectTable("body-weekday", lsGet(KEY_WD,DEFAULT_WEEKDAY)));
+  lsSet(KEY_WE, collectTable("body-weekend", lsGet(KEY_WE,DEFAULT_WEEKEND)));
+  toast("✓ Routine saved");
+}
+function confirmReset() {
+  if(confirm("Reset tuition routine to original?")) {
+    localStorage.removeItem(KEY_WD); localStorage.removeItem(KEY_WE);
+    buildTable("body-weekday", DEFAULT_WEEKDAY);
+    buildTable("body-weekend",  DEFAULT_WEEKEND);
+    toast("↺ Reset done");
+  }
+}
+function monthKey(d) { return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+function monthLabel(d) { return d.toLocaleString("default",{month:"long",year:"numeric"}); }
+function changeMonth(dir) {
+  currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth()+dir, 1);
+  renderSalaryPage();
+}
+function salKey(sid) { return sid+"_"+monthKey(currentMonth); }
+
+function renderSalaryPage() {
+  document.getElementById("monthTitle").textContent = monthLabel(currentMonth);
+  let expected=0, received=0, paid=0, pending=0;
+  students.forEach(s=>{
+    const entry=salaryData[salKey(s.id)]||{received:0,status:"unpaid",note:""};
+    expected += (parseFloat(s.fee)||0);
+    received += (parseFloat(entry.received)||0);
+    if(entry.status==="paid") paid++; else pending++;
+  });
+  document.getElementById("totalExpected").textContent="৳"+expected.toLocaleString();
+  document.getElementById("totalReceived").textContent="৳"+received.toLocaleString();
+  document.getElementById("countPaid").textContent=paid+" paid";
+  document.getElementById("countPending").textContent=pending+" pending";
+  renderStudentList();
+}
+
+function renderStudentList() {
+  const list=document.getElementById("studentList"); list.innerHTML="";
+  if(students.length===0){
+    list.innerHTML=`<div style="text-align:center;color:var(--subtext);padding:24px;font-size:0.8rem;">No students yet. Tap ＋ Add Student below.</div>`;
+    return;
+  }
+  students.forEach(s=>{
+    const k=salKey(s.id);
+    const entry=salaryData[k]||{received:"",status:"unpaid",note:""};
+    const statusClass = entry.status==="paid"?"badge-paid":entry.status==="partial"?"badge-partial":"badge-unpaid";
+    const statusLabel = entry.status==="paid"?"✓ Paid":entry.status==="partial"?"~ Partial":"✗ Unpaid";
+    const card=document.createElement("div"); card.className="student-card";
+    card.innerHTML=`
+      <div class="student-card-header" onclick="toggleCard('body-${s.id}')">
+        <div>
+          <div class="student-name">${s.name}</div>
+          <div class="student-meta">Fee: ৳${(parseFloat(s.fee)||0).toLocaleString()}</div>
+        </div>
+        <span class="student-badge ${statusClass}">${statusLabel}</span>
+      </div>
+      <div class="student-card-body" id="body-${s.id}">
+        <div class="salary-input-row">
+          <label>Received</label>
+          <input type="number" placeholder="৳ amount" value="${entry.received||""}"
+            id="inp-rec-${s.id}" oninput="updateEntry('${s.id}')">
+        </div>
+        <div class="status-row">
+          <div class="status-opt${entry.status==='paid'?' sel-paid':''}" onclick="setStatus('${s.id}','paid')">✓ Paid</div>
+          <div class="status-opt${entry.status==='partial'?' sel-partial':''}" onclick="setStatus('${s.id}','partial')">~ Partial</div>
+          <div class="status-opt${entry.status==='unpaid'?' sel-unpaid':''}" onclick="setStatus('${s.id}','unpaid')">✗ Unpaid</div>
+        </div>
+        <div class="note-row">
+          <label>Note</label>
+          <textarea placeholder="Optional note..." id="inp-note-${s.id}" oninput="updateEntry('${s.id}')">${entry.note||""}</textarea>
+        </div>
+        <button class="del-btn" onclick="deleteStudent('${s.id}')">🗑 Remove Student</button>
+      </div>`;
+    list.appendChild(card);
+  });
+}
+
+function toggleCard(id) { document.getElementById(id).classList.toggle("open"); }
+
+function updateEntry(sid) {
+  const k=salKey(sid);
+  if(!salaryData[k]) salaryData[k]={received:"",status:"unpaid",note:""};
+  salaryData[k].received = document.getElementById("inp-rec-"+sid)?.value||"";
+  salaryData[k].note     = document.getElementById("inp-note-"+sid)?.value||"";
+  saveSalary(false); renderSalaryPage();
+  const body=document.getElementById("body-"+sid);
+  if(body) body.classList.add("open");
+}
+
+function setStatus(sid, status) {
+  const k=salKey(sid);
+  if(!salaryData[k]) salaryData[k]={received:"",status:"unpaid",note:""};
+  salaryData[k].status=status;
+  saveSalary(false); renderSalaryPage();
+  const body=document.getElementById("body-"+sid);
+  if(body) body.classList.add("open");
+}
+
+function saveSalary(showToast=true) {
+  lsSet(KEY_SAL, salaryData);
+  lsSet(KEY_STUD, students);
+  if(showToast) toast("✓ Salary saved");
+}
+
+function openAddStudent() {
+  document.getElementById("newStudentName").value="";
+  document.getElementById("newStudentFee").value="";
+  document.getElementById("addStudentOverlay").classList.add("open");
+}
+
+function confirmAddStudent() {
+  const name=document.getElementById("newStudentName").value.trim();
+  const fee=document.getElementById("newStudentFee").value.trim();
+  if(!name){alert("Please enter a name.");return;}
+  const id="s"+Date.now();
+  students.push({id,name,fee:fee||"0"});
+  saveSalary(false);
+  closeOverlay("addStudentOverlay");
+  renderSalaryPage();
+  toast("✓ Student added");
+}
+
+function deleteStudent(sid) {
+  if(!confirm("Remove this student?")) return;
+  students=students.filter(s=>s.id!==sid);
+  saveSalary(false); renderSalaryPage();
+  toast("Student removed");
+}
+
+/* ════════════════ NOTES ════════════════ */
+function addNote() {
+  const id="n"+Date.now();
+  notes.unshift({id, title:"", body:"", date: new Date().toLocaleDateString()});
+  saveNotes();
+  renderNotes();
+  // focus title of new note
+  setTimeout(()=>{
+    const el = document.getElementById("ntitle-"+id);
+    if(el) el.focus();
+  }, 50);
+}
+
+function saveNotes() { lsSet(KEY_NOTES, notes); }
+
+function deleteNote(id) {
+  notes = notes.filter(n=>n.id!==id);
+  saveNotes(); renderNotes();
+  toast("Note deleted");
+}
+
+function renderNotes() {
+  const list = document.getElementById("notesList"); list.innerHTML="";
+  if(notes.length===0){
+    list.innerHTML=`<div style="text-align:center;color:var(--subtext);padding:24px;font-size:0.8rem;">No notes yet. Tap ＋ Add Note below.</div>`;
+    return;
+  }
+  notes.forEach(n=>{
+    const card = document.createElement("div"); card.className="note-card";
+    card.innerHTML=`
+      <input class="note-title-input" id="ntitle-${n.id}" placeholder="Title..." value="${escHtml(n.title)}"
+        oninput="updateNote('${n.id}')">
+      <textarea class="note-body-input" id="nbody-${n.id}" placeholder="Write something..."
+        oninput="updateNote('${n.id}')">${escHtml(n.body)}</textarea>
+      <div class="note-date">${n.date}</div>
+      <button class="note-del" onclick="deleteNote('${n.id}')">🗑</button>`;
+    list.appendChild(card);
+  });
+}
+
+function updateNote(id) {
+  const n = notes.find(x=>x.id===id); if(!n) return;
+  n.title = document.getElementById("ntitle-"+id)?.value||"";
+  n.body  = document.getElementById("nbody-"+id)?.value||"";
+  saveNotes();
+}
+
+function escHtml(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+/* ════════════════ TOAST ════════════════ */
+function toast(msg){
+  const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"),2200);
+}
+
+/* ════════════════ INIT ════════════════ */
+function init() {
+  try {
+    const tid=localStorage.getItem(KEY_THEME); if(tid){const t=THEMES.find(x=>x.id===tid);if(t)currentTheme=t;}
+    const fid=localStorage.getItem(KEY_FONT);  if(fid){const f=FONTS.find(x=>x.id===fid);if(f)currentFont=f;}
+    const sid=localStorage.getItem(KEY_SIZE);  if(sid){const s=SIZES.find(x=>x.id===sid);if(s)currentSize=s;}
+  } catch(e){}
+
+  applyTheme(currentTheme, false);
+  applyFont(currentFont, false);
+  applySize(currentSize, false);
+
+  buildTable("body-weekday", lsGet(KEY_WD, DEFAULT_WEEKDAY));
+  buildTable("body-weekend",  lsGet(KEY_WE, DEFAULT_WEEKEND));
+  buildClassTable(lsGet(KEY_CR, DEFAULT_CLASS));
+
+  // Restore table size
+  try {
+    const saved = localStorage.getItem(KEY_TBLSZ);
+    if (saved) tblSize = {...TBLSZ_DEF, ...JSON.parse(saved)};
+  } catch(e) {}
+  // Apply after a short delay so the DOM is ready
+  setTimeout(applyTableSizeToDOM, 50);
+
+  students   = lsGet(KEY_STUD, []);
+  salaryData = lsGet(KEY_SAL,  {});
+  notes      = lsGet(KEY_NOTES, []);
+
+  currentMonth = new Date();
+}
+
+init();
+
+// ── PWA Service Worker ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js')
+      .then(() => console.log('Service Worker registered'))
+      .catch(err => console.log('SW error:', err));
+  });
+}
+
+// ── PWA Install Prompt ──
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.style.display = 'block';
+});
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('installBtn');
+  if (btn) {
+    btn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') toast('✓ App installed!');
+        deferredPrompt = null;
+        btn.style.display = 'none';
+      }
+    });
+  }
+});
+</script>
+</body>
+</html>
