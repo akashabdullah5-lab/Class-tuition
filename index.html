@@ -541,10 +541,10 @@ tbody td { padding:0; border:1px solid var(--border); vertical-align:middle; }
   </div>
   <nav class="sidebar-nav">
     <div class="sidebar-section-label">Pages</div>
-    <button class="sidebar-item active" id="sb-routine" onclick="switchPage('routine');closeSidebar()">
+    <button class="sidebar-item" id="sb-routine" onclick="switchPage('routine');closeSidebar()">
       <span class="s-icon">📋</span> Tuition Routine
     </button>
-    <button class="sidebar-item" id="sb-class" onclick="switchPage('class');closeSidebar()">
+    <button class="sidebar-item active" id="sb-class" onclick="switchPage('class');closeSidebar()">
       <span class="s-icon">🏫</span> Class Routine
     </button>
     <button class="sidebar-item" id="sb-salary" onclick="switchPage('salary');closeSidebar()">
@@ -626,7 +626,7 @@ tbody td { padding:0; border:1px solid var(--border); vertical-align:middle; }
 <div class="toast" id="toast"></div>
 
 <!-- PAGE: Tuition Routine -->
-<div class="page active" id="page-routine">
+<div class="page" id="page-routine">
   <div class="section-label">Sunday – Thursday</div>
   <div class="table-wrapper" style="overflow-x:auto;">
     <table id="weekday-table">
@@ -663,7 +663,7 @@ tbody td { padding:0; border:1px solid var(--border); vertical-align:middle; }
 </div>
 
 <!-- PAGE: Class Routine -->
-<div class="page" id="page-class">
+<div class="page active" id="page-class">
   <div class="class-routine-page">
     <div class="section-label" style="flex-shrink:0">📅 Class Schedule</div>
     <div class="class-table-wrapper">
@@ -771,10 +771,10 @@ tbody td { padding:0; border:1px solid var(--border); vertical-align:middle; }
 
 <!-- Bottom Nav -->
 <nav class="bottom-nav">
-  <button class="nav-btn active" id="nav-routine" onclick="switchPage('routine')">
+  <button class="nav-btn" id="nav-routine" onclick="switchPage('routine')">
     <span class="nav-icon">📋</span>Routine
   </button>
-  <button class="nav-btn" id="nav-class" onclick="switchPage('class')">
+  <button class="nav-btn active" id="nav-class" onclick="switchPage('class')">
     <span class="nav-icon">🏫</span>Class
   </button>
   <button class="nav-btn" id="nav-salary" onclick="switchPage('salary')">
@@ -830,7 +830,7 @@ const TBLSZ_DEF = { h: 100, w: 100, f: 11 }; // h=%, w=%, f=px
 let currentTheme = THEMES[0];
 let currentFont  = FONTS[0];
 let currentSize  = SIZES[1];
-let currentPage  = "routine";
+let currentPage  = "class";
 let currentMonth = new Date();
 let students = [];
 let salaryData = {};
