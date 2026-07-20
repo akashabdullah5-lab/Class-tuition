@@ -1420,38 +1420,41 @@ function confirmClassReset() {
 }
 
 /* ════════ FIREBASE DATA HELPERS ════════ */
-function uid() { return window._uid; }
-function db()  { return window._db; }
-const { doc, setDoc, getDoc, collection, getDocs, deleteDoc } = window._fbFns || {};
-
 async function fbSet(key, val) {
-  if (!uid()) return;
+  if (!window._uid || !window._db) return;
   try {
-    await setDoc(doc(db(), "users", uid(), "data", key), { value: JSON.stringify(val) });
+    const { doc, setDoc } = window._fbFns;
+    if (val === null) {
+      const { deleteDoc } = window._fbFns;
+      await deleteDoc(doc(window._db, "users", window._uid, "data", key));
+    } else {
+      await setDoc(doc(window._db, "users", window._uid, "data", key), { value: JSON.stringify(val) });
+    }
   } catch(e) { console.warn("fbSet failed", key, e); }
 }
 
 async function fbGet(key, def) {
-  if (!uid()) return JSON.parse(JSON.stringify(def));
+  if (!window._uid || !window._db) return JSON.parse(JSON.stringify(def ?? {}));
   try {
-    const snap = await getDoc(doc(db(), "users", uid(), "data", key));
+    const { doc, getDoc } = window._fbFns;
+    const snap = await getDoc(doc(window._db, "users", window._uid, "data", key));
     if (snap.exists()) return JSON.parse(snap.data().value);
   } catch(e) { console.warn("fbGet failed", key, e); }
-  return JSON.parse(JSON.stringify(def));
+  return def !== null && def !== undefined ? JSON.parse(JSON.stringify(def)) : null;
 }
 
-// Shim: lsSet now saves to Firestore (fire-and-forget)
+// lsSet saves to Firestore and updates memory cache
 function lsSet(key, val) {
-  fbSet(key, val);
-  // Also cache in memory for same-session speed
-  try { window._cache = window._cache||{}; window._cache[key]=val; } catch(e){}
+  window._cache = window._cache || {};
+  window._cache[key] = val;
+  fbSet(key, val).catch(e => console.warn("Save failed:", key, e));
 }
-// lsGet now reads from memory cache (data is loaded at init)
+// lsGet reads from memory cache
 function lsGet(key, def) {
   try {
     if (window._cache && window._cache[key] !== undefined) return JSON.parse(JSON.stringify(window._cache[key]));
   } catch(e){}
-  return JSON.parse(JSON.stringify(def));
+  return def !== null && def !== undefined ? JSON.parse(JSON.stringify(def)) : null;
 }
 
 /* ════════ AUTH FUNCTIONS ════════ */
@@ -1708,6 +1711,28 @@ async function appInit() {
   applyTheme(currentTheme, false);
   applyFont(currentFont, false);
   applySize(currentSize, false);
+
+  // ── One-time migration: upload old localStorage data to Firestore ──
+  const migrateFlag = "fb_migrated_v1_" + (user ? user.uid : "");
+  if (!localStorage.getItem(migrateFlag)) {
+    toast("⏳ Migrating your old data to cloud…");
+    const dataKeys = [KEY_WD, KEY_WE, KEY_WD_H, KEY_WE_H, KEY_CR, KEY_STUD, KEY_SAL, KEY_NOTES];
+    let found = false;
+    for (const k of dataKeys) {
+      try {
+        const raw = localStorage.getItem(k);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          await fbSet(k, parsed);
+          window._cache = window._cache || {};
+          window._cache[k] = parsed;
+          found = true;
+        }
+      } catch(e) { console.warn("Migration failed for", k, e); }
+    }
+    try { localStorage.setItem(migrateFlag, "1"); } catch(e) {}
+    if (found) toast("✓ Old data migrated to your account!");
+  }
 
   // ── Load all data from Firestore ──
   toast("⏳ Loading your data…");
