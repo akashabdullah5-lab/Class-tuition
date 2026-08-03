@@ -816,34 +816,55 @@ tbody td { padding:0; border:1px solid var(--border); vertical-align:middle; }
       </table>
     </div>
     <div class="class-page-footer">
-      <div class="class-ctrl-group">
-        <button class="tbl-ctrl-btn tbl-ctrl-add" onclick="addClassRow()">＋ Row</button>
-        <button class="tbl-ctrl-btn tbl-ctrl-del" onclick="removeClassRow()">− Row</button>
-        <div class="tbl-ctrl-sep"></div>
-        <button class="tbl-ctrl-btn tbl-ctrl-add" onclick="addClassCol()">＋ Col</button>
-        <button class="tbl-ctrl-btn tbl-ctrl-del" onclick="removeClassCol()">− Col</button>
-      </div>
-      <button class="reset-btn" style="float:none;margin:0" onclick="confirmClassReset()">↺ Reset</button>
-      <button class="tbl-adjust-btn" onclick="openTableAdjust()">⚙ Size</button>
+      <button class="tbl-adjust-btn" onclick="openEditTablePanel()" style="flex:1;padding:10px 0;font-size:0.85rem;font-weight:700;">✏️ Edit Table</button>
     </div>
   </div>
 </div>
 
-<!-- Table size adjust overlay -->
-<div class="overlay" id="tableAdjustOverlay" onclick="overlayClick(event,'tableAdjustOverlay')">
-  <div class="panel">
-    <h2>⚙ Table Size</h2>
-    <p class="sub">Drag to resize rows and columns</p>
+<!-- Edit Table Panel -->
+<div class="overlay" id="editTableOverlay" onclick="overlayClick(event,'editTableOverlay')">
+  <div class="panel" style="max-height:85vh;overflow-y:auto;">
+    <h2>✏️ Edit Table</h2>
 
+    <!-- Undo / Redo -->
+    <div class="adjust-panel-section">
+      <h3>↩ Undo / Redo</h3>
+      <div style="display:flex;gap:8px;">
+        <button class="tbl-ctrl-btn tbl-ctrl-add" id="undoBtn" onclick="classUndo()" style="flex:1;justify-content:center;padding:10px;font-size:0.85rem;" disabled>↩ Undo</button>
+        <button class="tbl-ctrl-btn tbl-ctrl-add" id="redoBtn" onclick="classRedo()" style="flex:1;justify-content:center;padding:10px;font-size:0.85rem;" disabled>↪ Redo</button>
+      </div>
+      <div style="font-size:0.68rem;color:var(--subtext);margin-top:5px;" id="undoStatus">No history yet</div>
+    </div>
+
+    <!-- Add / Remove Rows -->
+    <div class="adjust-panel-section">
+      <h3>Rows</h3>
+      <div style="display:flex;gap:8px;">
+        <button class="tbl-ctrl-btn tbl-ctrl-add" onclick="addClassRow()" style="flex:1;justify-content:center;padding:10px;">＋ Add Row</button>
+        <button class="tbl-ctrl-btn tbl-ctrl-del" onclick="removeClassRow()" style="flex:1;justify-content:center;padding:10px;">− Remove Last Row</button>
+      </div>
+    </div>
+
+    <!-- Add / Remove Columns -->
+    <div class="adjust-panel-section">
+      <h3>Columns</h3>
+      <div style="display:flex;gap:8px;">
+        <button class="tbl-ctrl-btn tbl-ctrl-add" onclick="addClassCol()" style="flex:1;justify-content:center;padding:10px;">＋ Add Column</button>
+        <button class="tbl-ctrl-btn tbl-ctrl-del" onclick="removeClassCol()" style="flex:1;justify-content:center;padding:10px;">− Remove Last Column</button>
+      </div>
+    </div>
+
+    <!-- Table Height -->
     <div class="adjust-panel-section">
       <h3>📏 Table Height</h3>
       <div class="slider-row">
         <label>Height</label>
         <input type="range" id="sliderH" min="30" max="300" step="5" oninput="applyTableSize()">
-        <span class="slider-val" id="valH">100%</span>
+        <span class="slider-val" id="valH">60%</span>
       </div>
     </div>
 
+    <!-- Table Width -->
     <div class="adjust-panel-section">
       <h3>📐 Table Width</h3>
       <div class="slider-row">
@@ -853,19 +874,26 @@ tbody td { padding:0; border:1px solid var(--border); vertical-align:middle; }
       </div>
     </div>
 
+    <!-- Font Size -->
     <div class="adjust-panel-section">
       <h3>🔡 Cell Font Size</h3>
       <div class="slider-row">
         <label>Font</label>
         <input type="range" id="sliderF" min="7" max="20" step="1" oninput="applyTableSize()">
-        <span class="slider-val" id="valF">0.72rem</span>
+        <span class="slider-val" id="valF">11px</span>
       </div>
     </div>
 
-    <div class="adjust-reset-row">
-      <button class="adjust-reset-btn" onclick="resetTableSize()">↺ Reset to Default</button>
+    <!-- Reset -->
+    <div class="adjust-panel-section">
+      <h3>⚠️ Reset</h3>
+      <div style="display:flex;gap:8px;">
+        <button class="adjust-reset-btn" onclick="resetTableSize()" style="flex:1;">↺ Reset Size</button>
+        <button class="adjust-reset-btn" onclick="confirmClassReset()" style="flex:1;background:#ffebee;color:#c62828;border:1px solid #ffcdd2;">🗑 Reset All Data</button>
+      </div>
     </div>
-    <button class="close-panel" onclick="closeOverlay('tableAdjustOverlay')">Done</button>
+
+    <button class="close-panel" onclick="closeOverlay('editTableOverlay')">Done</button>
   </div>
 </div>
 
@@ -994,14 +1022,7 @@ function closeSidebar() {
 /* ── Table Size Adjust ── */
 let tblSize = {...TBLSZ_DEF};
 
-function openTableAdjust() {
-  // sync sliders to current values
-  document.getElementById("sliderH").value = tblSize.h;
-  document.getElementById("sliderW").value = tblSize.w;
-  document.getElementById("sliderF").value = tblSize.f;
-  updateSliderLabels();
-  document.getElementById("tableAdjustOverlay").classList.add("open");
-}
+function openTableAdjust() { openEditTablePanel(); } // legacy alias
 
 function updateSliderLabels() {
   document.getElementById("valH").textContent = tblSize.h + "%";
@@ -1382,7 +1403,57 @@ function collectClassTable() {
   return { periods, rows };
 }
 
+/* ── Undo/Redo History ── */
+let classHistory   = [];
+let classRedoStack = [];
+const MAX_HISTORY  = 30;
+
+function classSnapshot() {
+  classHistory.push(JSON.stringify(collectClassTable()));
+  if (classHistory.length > MAX_HISTORY) classHistory.shift();
+  classRedoStack = [];
+  updateUndoRedoUI();
+}
+
+function classUndo() {
+  if (classHistory.length === 0) { toast("Nothing to undo"); return; }
+  classRedoStack.push(JSON.stringify(collectClassTable()));
+  const prev = JSON.parse(classHistory.pop());
+  lsSet(KEY_CR, prev);
+  buildClassTable(prev);
+  setTimeout(applyTableSizeToDOM, 30);
+  updateUndoRedoUI();
+  toast("↩ Undone");
+}
+
+function classRedo() {
+  if (classRedoStack.length === 0) { toast("Nothing to redo"); return; }
+  classHistory.push(JSON.stringify(collectClassTable()));
+  const next = JSON.parse(classRedoStack.pop());
+  lsSet(KEY_CR, next);
+  buildClassTable(next);
+  setTimeout(applyTableSizeToDOM, 30);
+  updateUndoRedoUI();
+  toast("↪ Redone");
+}
+
+function updateUndoRedoUI() {
+  const undoBtn = document.getElementById("undoBtn");
+  const redoBtn = document.getElementById("redoBtn");
+  const status  = document.getElementById("undoStatus");
+  if (undoBtn) undoBtn.disabled = classHistory.length === 0;
+  if (redoBtn) redoBtn.disabled = classRedoStack.length === 0;
+  if (status) {
+    if (classHistory.length === 0 && classRedoStack.length === 0) {
+      status.textContent = "No history yet";
+    } else {
+      status.textContent = `${classHistory.length} undo step${classHistory.length!==1?"s":""} · ${classRedoStack.length} redo step${classRedoStack.length!==1?"s":""}`;
+    }
+  }
+}
+
 function addClassRow() {
+  classSnapshot();
   const d = collectClassTable();
   d.rows.push({ day: "New Day", cells: Array(d.periods.length).fill("") });
   lsSet(KEY_CR, d);
@@ -1394,6 +1465,7 @@ function addClassRow() {
 function removeClassRow() {
   const d = collectClassTable();
   if (d.rows.length <= 1) { toast("⚠ Minimum 1 row"); return; }
+  classSnapshot();
   d.rows.pop();
   lsSet(KEY_CR, d);
   buildClassTable(d);
@@ -1402,6 +1474,7 @@ function removeClassRow() {
 }
 
 function addClassCol() {
+  classSnapshot();
   const d = collectClassTable();
   d.periods.push("New Period");
   d.rows.forEach(r => r.cells.push(""));
@@ -1414,6 +1487,7 @@ function addClassCol() {
 function removeClassCol() {
   const d = collectClassTable();
   if (d.periods.length <= 1) { toast("⚠ Minimum 1 column"); return; }
+  classSnapshot();
   d.periods.pop();
   d.rows.forEach(r => r.cells.pop());
   lsSet(KEY_CR, d);
@@ -1426,15 +1500,30 @@ function saveClassRoutine() {
   lsSet(KEY_CR, collectClassTable());
   toast("✓ Class routine saved");
 }
+
 function confirmClassReset() {
-  if(confirm("Reset class routine to original?")) {
+  if(confirm("Reset class routine to original? This cannot be undone.")) {
+    classHistory = []; classRedoStack = [];
     delete (window._cache||{})[KEY_CR];
     fbSet(KEY_CR, null);
     buildClassTable(DEFAULT_CLASS);
     setTimeout(applyTableSizeToDOM, 30);
+    updateUndoRedoUI();
     toast("↺ Class routine reset");
   }
 }
+
+function openEditTablePanel() {
+  document.getElementById("sliderH").value = tblSize.h;
+  document.getElementById("sliderW").value = tblSize.w;
+  document.getElementById("sliderF").value = tblSize.f;
+  document.getElementById("valH").textContent = tblSize.h + "%";
+  document.getElementById("valW").textContent = tblSize.w + "%";
+  document.getElementById("valF").textContent = tblSize.f + "px";
+  updateUndoRedoUI();
+  document.getElementById("editTableOverlay").classList.add("open");
+}
+
 
 /* ════════ FIREBASE DATA HELPERS ════════ */
 async function fbSet(key, val) {
