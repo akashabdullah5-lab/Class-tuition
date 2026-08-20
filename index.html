@@ -638,6 +638,19 @@ tbody td { padding:0; border:1px solid var(--border); vertical-align:middle; }
 }
 /* hide app until logged in */
 #appRoot { display: none; }
+
+/* ══ Recovery Tool ══ */
+.recovery-item {
+  background: var(--card); border: 1.5px solid var(--border);
+  border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;
+}
+.recovery-item-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+.recovery-item-name   { font-weight:700; font-size:0.8rem; color:var(--text); }
+.recovery-item-size   { font-size:0.68rem; color:var(--subtext); }
+.recovery-item-preview { font-size:0.68rem; color:var(--subtext); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:6px; }
+.recovery-restore-btn { background:#e8f5e9; color:#2e7d32; border:1px solid #a5d6a7; border-radius:7px; padding:5px 10px; font-size:0.72rem; font-weight:700; cursor:pointer; }
+.recovery-item.restored   { border-color:#a5d6a7; background:#f1f8e9; }
+.recovery-item.not-found  { opacity:0.5; }
 </style>
 </head>
 <body>
@@ -700,6 +713,9 @@ tbody td { padding:0; border:1px solid var(--border); vertical-align:middle; }
     <div class="sidebar-section-label">Tools</div>
     <button class="sidebar-item" onclick="openSettings();closeSidebar()">
       <span class="s-icon">🎨</span> Appearance
+    </button>
+    <button class="sidebar-item" onclick="openRecoveryTool();closeSidebar()">
+      <span class="s-icon">🔧</span> Recovery Tool
     </button>
   </nav>
   <div class="sidebar-footer">
@@ -894,6 +910,35 @@ tbody td { padding:0; border:1px solid var(--border); vertical-align:middle; }
     </div>
 
     <button class="close-panel" onclick="closeOverlay('editTableOverlay')">Done</button>
+  </div>
+</div>
+
+<!-- Recovery Tool Overlay -->
+<div class="overlay" id="recoveryOverlay" onclick="overlayClick(event,'recoveryOverlay')">
+  <div class="panel" style="max-height:88vh;overflow-y:auto;">
+    <h2>🔧 Recovery Tool</h2>
+    <p class="sub">Scan your device for old saved data and restore it to your cloud account.</p>
+
+    <div id="recoveryStatus" style="background:var(--row-alt);border-radius:10px;padding:10px 12px;font-size:0.75rem;color:var(--subtext);margin-bottom:14px;">
+      Tap "Scan Device" to check for recoverable data.
+    </div>
+
+    <button onclick="scanLocalStorage()" class="auth-btn" style="margin-bottom:14px;">
+      🔍 Scan Device Storage
+    </button>
+
+    <div id="recoveryList"></div>
+
+    <div id="recoveryActions" style="display:none;margin-top:12px;">
+      <button onclick="restoreAllData()" class="auth-btn" style="background:#2e7d32;margin-bottom:8px;">
+        ✅ Restore ALL Found Data to Cloud
+      </button>
+      <button onclick="clearLocalStorageData()" class="auth-btn" style="background:#c62828;">
+        🗑 Clear Device Storage (after restore)
+      </button>
+    </div>
+
+    <button class="close-panel" onclick="closeOverlay('recoveryOverlay')" style="margin-top:12px;">Close</button>
   </div>
 </div>
 
@@ -1306,14 +1351,16 @@ function saveAll() {
   toast("✓ Routine saved");
 }
 function confirmReset() {
-  if(confirm("Reset tuition routine to original?")) {
-    [KEY_WD, KEY_WE, KEY_WD_H, KEY_WE_H].forEach(k => {
-      delete (window._cache||{})[k];
-      fbSet(k, null);
-    });
-    buildTable("body-weekday", DEFAULT_WEEKDAY, DEFAULT_WEEKDAY_HEADERS);
-    buildTable("body-weekend",  DEFAULT_WEEKEND,  DEFAULT_WEEKEND_HEADERS);
-    toast("↺ Reset done");
+  if(confirm("⚠️ Reset tuition routine to blank?\n\nThis will permanently delete all your tuition table data from the cloud.")) {
+    if(confirm("Are you absolutely sure? This cannot be undone.")) {
+      [KEY_WD, KEY_WE, KEY_WD_H, KEY_WE_H].forEach(k => {
+        delete (window._cache||{})[k];
+        fbSet(k, null);
+      });
+      buildTable("body-weekday", DEFAULT_WEEKDAY, DEFAULT_WEEKDAY_HEADERS);
+      buildTable("body-weekend",  DEFAULT_WEEKEND,  DEFAULT_WEEKEND_HEADERS);
+      toast("↺ Reset done");
+    }
   }
 }
 
@@ -1502,14 +1549,16 @@ function saveClassRoutine() {
 }
 
 function confirmClassReset() {
-  if(confirm("Reset class routine to original? This cannot be undone.")) {
-    classHistory = []; classRedoStack = [];
-    delete (window._cache||{})[KEY_CR];
-    fbSet(KEY_CR, null);
-    buildClassTable(DEFAULT_CLASS);
-    setTimeout(applyTableSizeToDOM, 30);
-    updateUndoRedoUI();
-    toast("↺ Class routine reset");
+  if(confirm("⚠️ Reset class routine to blank?\n\nThis will permanently delete all your class table data from the cloud.")) {
+    if(confirm("Are you absolutely sure? This cannot be undone.")) {
+      classHistory = []; classRedoStack = [];
+      delete (window._cache||{})[KEY_CR];
+      fbSet(KEY_CR, null);
+      buildClassTable(DEFAULT_CLASS);
+      setTimeout(applyTableSizeToDOM, 30);
+      updateUndoRedoUI();
+      toast("↺ Class routine reset");
+    }
   }
 }
 
@@ -1878,14 +1927,24 @@ async function appInit() {
   }
 
   // ── Load all data from Firestore ──
+  // NOTE: load sequentially and only overwrite cache if Firestore has a value
+  // This prevents a slow/failed Firestore read from wiping good migrated data
   toast("⏳ Loading your data…");
   window._cache = window._cache || {};
 
   const keys = [KEY_WD, KEY_WE, KEY_WD_H, KEY_WE_H, KEY_CR, KEY_STUD, KEY_SAL, KEY_NOTES, KEY_TBLSZ];
-  await Promise.all(keys.map(async k => {
-    const val = await fbGet(k, null);
-    if (val !== null) window._cache[k] = val;
-  }));
+  for (const k of keys) {
+    try {
+      const val = await fbGet(k, null);
+      if (val !== null) {
+        window._cache[k] = val; // only update cache if Firestore actually has data
+      }
+      // if val is null, keep whatever is already in cache (e.g. from migration)
+    } catch(e) {
+      console.warn("Failed to load key from Firestore:", k, e);
+      // keep existing cache value on error
+    }
+  }
 
   // Build tuition routine tables
   buildTable("body-weekday", lsGet(KEY_WD, DEFAULT_WEEKDAY), lsGet(KEY_WD_H, DEFAULT_WEEKDAY_HEADERS));
@@ -1929,6 +1988,175 @@ async function appInit() {
 }
 
 // Register the init function for the auth listener to call
+/* ════════════ RECOVERY TOOL ════════════ */
+const RECOVERY_KEYS = [
+  { key: KEY_WD,    label: "Tuition Routine — Weekday Data" },
+  { key: KEY_WE,    label: "Tuition Routine — Weekend Data" },
+  { key: KEY_WD_H,  label: "Tuition Routine — Weekday Headers" },
+  { key: KEY_WE_H,  label: "Tuition Routine — Weekend Headers" },
+  { key: KEY_CR,    label: "Class Routine" },
+  { key: KEY_STUD,  label: "Salary — Student List" },
+  { key: KEY_SAL,   label: "Salary — Payment Records" },
+  { key: KEY_NOTES, label: "Notes" },
+];
+
+let recoveredData = {}; // key → parsed value
+
+function openRecoveryTool() {
+  recoveredData = {};
+  document.getElementById("recoveryList").innerHTML = "";
+  document.getElementById("recoveryActions").style.display = "none";
+  document.getElementById("recoveryStatus").textContent = "Tap \"Scan Device\" to check for recoverable data.";
+  document.getElementById("recoveryOverlay").classList.add("open");
+}
+
+function scanLocalStorage() {
+  recoveredData = {};
+  const list = document.getElementById("recoveryList");
+  list.innerHTML = "";
+  let found = 0;
+
+  RECOVERY_KEYS.forEach(({ key, label }) => {
+    let raw = null;
+    let parsed = null;
+
+    // Check localStorage
+    try { raw = localStorage.getItem(key); } catch(e) {}
+
+    // Also check window._cache (in-memory, e.g. from this session)
+    if (!raw && window._cache && window._cache[key] !== undefined) {
+      try { raw = JSON.stringify(window._cache[key]); } catch(e) {}
+    }
+
+    if (raw) {
+      try { parsed = JSON.parse(raw); } catch(e) {}
+    }
+
+    const item = document.createElement("div");
+    item.className = "recovery-item" + (parsed ? "" : " not-found");
+    item.id = "rec-item-" + key;
+
+    if (parsed) {
+      found++;
+      recoveredData[key] = parsed;
+      const size = (raw.length / 1024).toFixed(1);
+      const preview = previewData(key, parsed);
+      item.innerHTML = `
+        <div class="recovery-item-header">
+          <span class="recovery-item-name">✅ ${label}</span>
+          <span class="recovery-item-size">${size} KB</span>
+        </div>
+        <div class="recovery-item-preview">${preview}</div>
+        <button class="recovery-restore-btn" onclick="restoreSingleKey('${key}')">☁️ Restore this to Cloud</button>
+      `;
+    } else {
+      item.innerHTML = `
+        <div class="recovery-item-header">
+          <span class="recovery-item-name">❌ ${label}</span>
+          <span class="recovery-item-size">Not found</span>
+        </div>
+        <div class="recovery-item-preview">No local data for this section.</div>
+      `;
+    }
+    list.appendChild(item);
+  });
+
+  const statusEl = document.getElementById("recoveryStatus");
+  if (found > 0) {
+    statusEl.innerHTML = `<strong style="color:#2e7d32">Found ${found} recoverable data section${found>1?"s":""}!</strong><br>You can restore individual sections or all at once below.`;
+    statusEl.style.borderLeft = "3px solid #2e7d32";
+    document.getElementById("recoveryActions").style.display = "block";
+  } else {
+    statusEl.innerHTML = `<strong style="color:#c62828">No recoverable data found on this device.</strong><br>The data may have already been cleared, or this is a different device than where the data was originally saved.`;
+    statusEl.style.borderLeft = "3px solid #c62828";
+  }
+}
+
+function previewData(key, parsed) {
+  try {
+    if (key === KEY_STUD && Array.isArray(parsed)) {
+      return `${parsed.length} student(s): ` + parsed.map(s => s.name).join(", ");
+    }
+    if (key === KEY_NOTES && Array.isArray(parsed)) {
+      return `${parsed.length} note(s)`;
+    }
+    if (key === KEY_CR && parsed.rows) {
+      return `${parsed.rows.length} days × ${parsed.periods?.length||"?"} periods`;
+    }
+    if ((key === KEY_WD || key === KEY_WE) && Array.isArray(parsed)) {
+      return `${parsed.length} time slot(s)`;
+    }
+    if (Array.isArray(parsed)) return `${parsed.length} item(s)`;
+    if (typeof parsed === "object") return `${Object.keys(parsed).length} record(s)`;
+    return String(parsed).substring(0, 60);
+  } catch(e) { return "Data found"; }
+}
+
+async function restoreSingleKey(key) {
+  const val = recoveredData[key];
+  if (!val) { toast("No data to restore for this section"); return; }
+
+  const btn = document.querySelector(`#rec-item-${key} .recovery-restore-btn`);
+  if (btn) { btn.textContent = "⏳ Restoring…"; btn.disabled = true; }
+
+  try {
+    await fbSet(key, val);
+    window._cache = window._cache || {};
+    window._cache[key] = val;
+
+    const item = document.getElementById("rec-item-" + key);
+    if (item) item.classList.add("restored");
+    if (btn) { btn.textContent = "✅ Restored!"; }
+    toast("✅ Restored to cloud!");
+  } catch(e) {
+    if (btn) { btn.textContent = "❌ Failed — tap to retry"; btn.disabled = false; }
+    toast("❌ Restore failed. Check internet connection.");
+  }
+}
+
+async function restoreAllData() {
+  if (!confirm(`Restore all ${Object.keys(recoveredData).length} found data sections to your cloud account?`)) return;
+
+  const keys = Object.keys(recoveredData);
+  let success = 0;
+  for (const key of keys) {
+    try {
+      await fbSet(key, recoveredData[key]);
+      window._cache = window._cache || {};
+      window._cache[key] = recoveredData[key];
+      const item = document.getElementById("rec-item-" + key);
+      if (item) item.classList.add("restored");
+      success++;
+    } catch(e) { console.warn("Failed to restore", key, e); }
+  }
+
+  toast(`✅ Restored ${success}/${keys.length} sections to cloud!`);
+
+  // Reload the app data to reflect the restored data
+  buildTable("body-weekday", lsGet(KEY_WD, DEFAULT_WEEKDAY), lsGet(KEY_WD_H, DEFAULT_WEEKDAY_HEADERS));
+  buildTable("body-weekend",  lsGet(KEY_WE, DEFAULT_WEEKEND),  lsGet(KEY_WE_H, DEFAULT_WEEKEND_HEADERS));
+  buildClassTable(lsGet(KEY_CR, DEFAULT_CLASS));
+  students   = lsGet(KEY_STUD,  []);
+  salaryData = lsGet(KEY_SAL,   {});
+  notes      = lsGet(KEY_NOTES, []);
+  if (currentPage === "salary") renderSalaryPage();
+  if (currentPage === "notes")  renderNotes();
+  setTimeout(applyTableSizeToDOM, 50);
+
+  document.getElementById("recoveryStatus").innerHTML =
+    `<strong style="color:#2e7d32">✅ All data restored successfully!</strong><br>Your app has been refreshed with the recovered data.`;
+}
+
+function clearLocalStorageData() {
+  if (!confirm("Clear all local device storage?\n\nOnly do this AFTER restoring to cloud. Local data cannot be recovered after this.")) return;
+  RECOVERY_KEYS.forEach(({ key }) => { try { localStorage.removeItem(key); } catch(e) {} });
+  recoveredData = {};
+  document.getElementById("recoveryList").innerHTML = "";
+  document.getElementById("recoveryActions").style.display = "none";
+  document.getElementById("recoveryStatus").textContent = "Device storage cleared.";
+  toast("🗑 Local storage cleared");
+}
+
 window._appInit = appInit;
 
 // ── PWA Service Worker ──
