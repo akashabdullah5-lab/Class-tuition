@@ -27,46 +27,7 @@
 }
 </style>
 
-<!-- Firebase SDK -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-// 🔥 Firebase config
-const firebaseConfig = {
-  apiKey: "AIzaSyAUPWWEqhgX7wsaBz7BOOG8SpNdwdIKWow",
-  authDomain: "schedul-app-de940.firebaseapp.com",
-  projectId: "schedul-app-de940",
-  storageBucket: "schedul-app-de940.firebasestorage.app",
-  messagingSenderId: "84209531171",
-  appId: "1:84209531171:web:8f44b883bec11ce6c6f496",
-  measurementId: "G-G8P4VG6QP3"
-};
-
-const app  = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db   = getFirestore(app);
-
-// expose to global scope for non-module scripts
-window._auth = auth;
-window._db   = db;
-window._fbFns = { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, doc, setDoc, getDoc, collection, getDocs, deleteDoc };
-
-// Auth state listener — boot the app when signed in
-onAuthStateChanged(auth, user => {
-  if (user) {
-    window._uid = user.uid;
-    document.getElementById("authScreen").style.display = "none";
-    document.getElementById("appRoot").style.display    = "block";
-    window._appInit && window._appInit();
-  } else {
-    window._uid = null;
-    document.getElementById("authScreen").style.display = "flex";
-    document.getElementById("appRoot").style.display    = "none";
-  }
-});
-</script>
+<!-- Firebase SDK + App (single module to avoid scope issues) -->
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1001,7 +962,25 @@ tbody td { padding:0; border:1px solid var(--border); vertical-align:middle; }
   </button>
 </nav>
 
-<script>
+<script type="module">
+/* ══ Firebase Imports ══ */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAUPWWEqhgX7wsaBz7BOOG8SpNdwdIKWow",
+  authDomain: "schedul-app-de940.firebaseapp.com",
+  projectId: "schedul-app-de940",
+  storageBucket: "schedul-app-de940.firebasestorage.app",
+  messagingSenderId: "84209531171",
+  appId: "1:84209531171:web:8f44b883bec11ce6c6f496",
+  measurementId: "G-G8P4VG6QP3"
+};
+
+const _app  = initializeApp(firebaseConfig);
+const _auth = getAuth(_app);
+const _db   = getFirestore(_app);
 /* ════════════════ THEMES ════════════════ */
 const THEMES = [
   {id:"teal",   name:"Teal",   h1:"#00695c",h2:"#00897b",accent:"#ffd54f",at:"#004d40",timeBg:"#b2dfdb",timeFg:"#00695c",rowAlt:"#f0faf9",border:"#b2dfdb",section:"#00695c",bg:"#e0f2f1",focus:"#ffd54f",ec:"#004d40",dark:false},
@@ -1576,23 +1555,23 @@ function openEditTablePanel() {
 
 /* ════════ FIREBASE DATA HELPERS ════════ */
 async function fbSet(key, val) {
-  if (!window._uid || !window._db) return;
+  if (!window._uid || !_db) return;
   try {
-    const { doc, setDoc } = window._fbFns;
+    // doc, setDoc available in module scope
     if (val === null) {
-      const { deleteDoc } = window._fbFns;
-      await deleteDoc(doc(window._db, "users", window._uid, "data", key));
+      // deleteDoc available in module scope
+      await deleteDoc(doc(_db, "users", window._uid, "data", key));
     } else {
-      await setDoc(doc(window._db, "users", window._uid, "data", key), { value: JSON.stringify(val) });
+      await setDoc(doc(_db, "users", window._uid, "data", key), { value: JSON.stringify(val) });
     }
   } catch(e) { console.warn("fbSet failed", key, e); }
 }
 
 async function fbGet(key, def) {
-  if (!window._uid || !window._db) return JSON.parse(JSON.stringify(def ?? {}));
+  if (!window._uid || !_db) return JSON.parse(JSON.stringify(def ?? {}));
   try {
-    const { doc, getDoc } = window._fbFns;
-    const snap = await getDoc(doc(window._db, "users", window._uid, "data", key));
+    // doc, getDoc available in module scope
+    const snap = await getDoc(doc(_db, "users", window._uid, "data", key));
     if (snap.exists()) return JSON.parse(snap.data().value);
   } catch(e) { console.warn("fbGet failed", key, e); }
   return def !== null && def !== undefined ? JSON.parse(JSON.stringify(def)) : null;
@@ -1636,8 +1615,8 @@ async function authLogin() {
   if (!email || !pass) { authErr("Please fill in all fields."); return; }
   authLoading(true);
   try {
-    const { signInWithEmailAndPassword } = window._fbFns;
-    await signInWithEmailAndPassword(window._auth, email, pass);
+    // signInWithEmailAndPassword available in module scope
+    await signInWithEmailAndPassword(_auth, email, pass);
   } catch(e) {
     const msgs = { "auth/user-not-found":"No account with that email.", "auth/wrong-password":"Incorrect password.", "auth/invalid-email":"Invalid email address.", "auth/invalid-credential":"Wrong email or password." };
     authErr(msgs[e.code] || e.message);
@@ -1653,8 +1632,8 @@ async function authSignup() {
   if (pass.length < 6) { authErr("Password must be at least 6 characters."); return; }
   authLoading(true);
   try {
-    const { createUserWithEmailAndPassword } = window._fbFns;
-    await createUserWithEmailAndPassword(window._auth, email, pass);
+    // createUserWithEmailAndPassword available in module scope
+    await createUserWithEmailAndPassword(_auth, email, pass);
   } catch(e) {
     const msgs = { "auth/email-already-in-use":"That email is already registered.", "auth/invalid-email":"Invalid email address.", "auth/weak-password":"Password is too weak." };
     authErr(msgs[e.code] || e.message);
@@ -1663,8 +1642,8 @@ async function authSignup() {
 
 async function authSignOut() {
   if (!confirm("Sign out?")) return;
-  const { signOut } = window._fbFns;
-  await signOut(window._auth);
+  // signOut available in module scope
+  await signOut(_auth);
   window._cache = {};
   toast("Signed out");
 }
@@ -1887,7 +1866,7 @@ function toast(msg){
 /* ════════════════ INIT ════════════════ */
 async function appInit() {
   // Show user email in sidebar
-  const user = window._auth.currentUser;
+  const user = _auth.currentUser;
   if (user) {
     const el = document.getElementById("sidebar-user-email");
     if (el) el.textContent = "Signed in as: " + user.email;
@@ -2157,7 +2136,21 @@ function clearLocalStorageData() {
   toast("🗑 Local storage cleared");
 }
 
-window._appInit = appInit;
+
+/* ══ Auth State Listener ══ */
+onAuthStateChanged(_auth, user => {
+  if (user) {
+    window._uid = user.uid;
+    document.getElementById("authScreen").style.display = "none";
+    document.getElementById("appRoot").style.display    = "block";
+    if (typeof appInit === "function") appInit();
+  } else {
+    window._uid = null;
+    document.getElementById("authScreen").style.display = "flex";
+    document.getElementById("appRoot").style.display    = "none";
+  }
+});
+
 
 // ── PWA Service Worker ──
 if ('serviceWorker' in navigator) {
