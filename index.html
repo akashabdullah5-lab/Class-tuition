@@ -962,6 +962,33 @@ tbody td { padding:0; border:1px solid var(--border); vertical-align:middle; }
   </button>
 </nav>
 
+<script>
+/* DEBUG: shows startup errors on screen (safe to remove later) */
+(function(){
+  var msgs=[];
+  function show(){
+    var b=document.getElementById('dbgBox');
+    if(!b){b=document.createElement('pre');b.id='dbgBox';
+      b.style.cssText='position:fixed;left:0;right:0;bottom:0;max-height:45%;overflow:auto;margin:0;padding:8px;background:#b71c1c;color:#fff;font:12px monospace;z-index:99999;white-space:pre-wrap';
+      (document.body||document.documentElement).appendChild(b);}
+    b.textContent=msgs.join('\n---\n');
+  }
+  function add(m){msgs.push(m);show();}
+  window.addEventListener('error',function(e){
+    var t=e.target;
+    if(t&&t!==window&&(t.src||t.href)) add('LOAD FAIL: '+(t.src||t.href));
+    else add('ERROR: '+e.message+' @'+(e.lineno||'')+':'+(e.colno||''));
+  },true);
+  window.addEventListener('unhandledrejection',function(e){
+    add('PROMISE: '+(e.reason&&(e.reason.stack||e.reason.message)||e.reason));
+  });
+  setTimeout(function(){
+    var a=document.getElementById('authScreen'),r=document.getElementById('appRoot');
+    var vis=function(x){return x&&getComputedStyle(x).display!=='none';};
+    if(!vis(a)&&!vis(r)) add('App did not start after 6s (Firebase scripts or auth never finished). SW: '+(navigator.serviceWorker&&navigator.serviceWorker.controller?'active':'none'));
+  },6000);
+})();
+</script>
 <script type="module">
 /* ══ Firebase Imports ══ */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -1676,10 +1703,42 @@ function changeMonth(dir) {
 }
 function salKey(sid) { return sid+"_"+monthKey(currentMonth); }
 
+/* A student counts in a month only if: from <= month < to  (month keys are "YYYY-MM") */
+function isActiveIn(s, mk) {
+  if (s.from && mk < s.from) return false;
+  if (s.to   && mk >= s.to)  return false;
+  return true;
+}
+function activeStudents() {
+  const mk = monthKey(currentMonth);
+  return students.filter(s => isActiveIn(s, mk));
+}
+/* One-time: give older students a start month so past months stop changing */
+function normalizeStudents() {
+  let changed = false;
+  students.forEach(s => {
+    if (s.from) return;
+    let best = null;
+    const m = /^s(\d{12,13})$/.exec(s.id || "");
+    if (m) {
+      const ts = parseInt(m[1], 10);
+      if (ts > 1577836800000 && ts < Date.now() + 86400000) best = monthKey(new Date(ts));
+    }
+    Object.keys(salaryData || {}).forEach(k => {
+      if (k.startsWith(s.id + "_")) {
+        const mk = k.slice(s.id.length + 1);
+        if (/^\d{4}-\d{2}$/.test(mk) && (best === null || mk < best)) best = mk;
+      }
+    });
+    if (best) { s.from = best; changed = true; }
+  });
+  if (changed) lsSet(KEY_STUD, students);
+}
+
 function renderSalaryPage() {
   document.getElementById("monthTitle").textContent = monthLabel(currentMonth);
   let expected=0, received=0, paid=0, pending=0;
-  students.forEach(s=>{
+  activeStudents().forEach(s=>{
     const entry=salaryData[salKey(s.id)]||{received:0,status:"unpaid",note:""};
     expected += (parseFloat(s.fee)||0);
     const entryReceived = parseFloat(entry.received)||0;
@@ -1699,11 +1758,12 @@ function renderSalaryPage() {
 
 function renderStudentList() {
   const list=document.getElementById("studentList"); list.innerHTML="";
-  if(students.length===0){
-    list.innerHTML=`<div style="text-align:center;color:var(--subtext);padding:24px;font-size:0.8rem;">No students yet. Tap ＋ Add Student below.</div>`;
+  const act = activeStudents();
+  if(act.length===0){
+    list.innerHTML=`<div style="text-align:center;color:var(--subtext);padding:24px;font-size:0.8rem;">No students this month. Tap ＋ Add Student below.</div>`;
     return;
   }
-  students.forEach(s=>{
+  act.forEach(s=>{
     const k=salKey(s.id);
     const entry=salaryData[k]||{received:"",status:"unpaid",note:""};
     const statusClass = entry.status==="paid"?"badge-paid":entry.status==="partial"?"badge-partial":"badge-unpaid";
@@ -1777,7 +1837,7 @@ function setStatus(sid, status) {
 
 function updateSalaryTotals() {
   let expected=0, received=0, paid=0, pending=0;
-  students.forEach(s=>{
+  activeStudents().forEach(s=>{
     const entry=salaryData[salKey(s.id)]||{received:0,status:"unpaid",note:""};
     expected += (parseFloat(s.fee)||0);
     const entryReceived = parseFloat(entry.received)||0;
@@ -1813,7 +1873,7 @@ function confirmAddStudent() {
   const fee=document.getElementById("newStudentFee").value.trim();
   if(!name){alert("Please enter a name.");return;}
   const id="s"+Date.now();
-  students.push({id,name,fee:fee||"0"});
+  students.push({id,name,fee:fee||"0",from:monthKey(currentMonth)});
   saveSalary(false);
   closeOverlay("addStudentOverlay");
   renderSalaryPage();
@@ -1821,10 +1881,20 @@ function confirmAddStudent() {
 }
 
 function deleteStudent(sid) {
-  if(!confirm("Remove this student?")) return;
-  students=students.filter(s=>s.id!==sid);
+  if(!confirm("Remove this student from "+monthLabel(currentMonth)+" onward?\nPrevious months stay unchanged.")) return;
+  const mk=monthKey(currentMonth);
+  const st=students.find(x=>x.id===sid);
+  if(st){
+    if(st.from && mk<=st.from){
+      // removed in the very month it started → it never counted; drop it fully
+      students=students.filter(x=>x.id!==sid);
+      Object.keys(salaryData).forEach(k=>{ if(k.startsWith(sid+"_")) delete salaryData[k]; });
+    } else {
+      st.to=mk;
+    }
+  }
   saveSalary(false); renderSalaryPage();
-  toast("Student removed");
+  toast("Student removed from this month onward");
 }
 
 /* ════════════════ NOTES ════════════════ */
@@ -1951,6 +2021,7 @@ async function appInit() {
     notes      = lsGet(KEY_NOTES, []);
 
     currentMonth = new Date();
+    normalizeStudents();
 
     // Migrate old flat salary keys
     const thisMonthKey = monthKey(currentMonth);
