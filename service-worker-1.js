@@ -1,7 +1,7 @@
 /* ══ Teacher's Schedule — Service Worker ══ */
-const CACHE_NAME = 'teachers-schedule-v3';
+const CACHE_NAME = 'teachers-schedule-v4';
 
-// Only cache the main page shell — Firebase data comes from cloud
+// App shell. Firestore data is NOT cached here (it's handled in the app).
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -10,9 +10,7 @@ const STATIC_ASSETS = [
 // Install — cache the app shell
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(STATIC_ASSETS);
-    })
+    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
   );
   self.skipWaiting();
 });
@@ -21,20 +19,35 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(
-        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
-      )
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
     )
   );
   self.clients.claim();
 });
 
-// Fetch — network first, fall back to cache
-// This ensures Firebase calls always go through (never cached)
 self.addEventListener('fetch', event => {
-  const url = new URL(event.request.url);
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
 
-  // Always let Firebase, Google APIs, and font requests go straight to network
+  // 1) Firebase SDK files (version-pinned, never change) → cache first.
+  //    First launch downloads them once; every launch after is instant.
+  if (url.hostname === 'www.gstatic.com' && url.pathname.startsWith('/firebasejs/')) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then(cache =>
+        cache.match(req).then(hit => {
+          if (hit) return hit;
+          return fetch(req).then(res => {
+            if (res && res.status === 200) cache.put(req, res.clone());
+            return res;
+          });
+        })
+      )
+    );
+    return;
+  }
+
+  // 2) Live Firebase / Google API calls and fonts → always straight to network
   if (
     url.hostname.includes('firebase') ||
     url.hostname.includes('google') ||
@@ -44,24 +57,22 @@ self.addEventListener('fetch', event => {
     url.hostname.includes('firestore') ||
     url.hostname.includes('maateen')
   ) {
-    event.respondWith(fetch(event.request));
-    return;
+    return; // let the browser handle it normally
   }
 
-  // For the app shell: network first, fall back to cache
+  // 3) App shell → stale-while-revalidate:
+  //    open instantly from cache, quietly fetch the newest copy for next time.
   event.respondWith(
-    fetch(event.request)
-      .then(response => {
-        // Update cache with fresh response
-        if (response && response.status === 200 && event.request.method === 'GET') {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        }
-        return response;
+    caches.open(CACHE_NAME).then(cache =>
+      cache.match(req).then(cached => {
+        const network = fetch(req)
+          .then(res => {
+            if (res && res.status === 200) cache.put(req, res.clone());
+            return res;
+          })
+          .catch(() => cached || cache.match('./index.html'));
+        return cached || network;
       })
-      .catch(() => {
-        // Offline fallback — serve from cache
-        return caches.match(event.request) || caches.match('./index.html');
-      })
+    )
   );
 });
